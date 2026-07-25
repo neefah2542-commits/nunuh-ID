@@ -13,9 +13,10 @@ interface DressCatalogueProps {
   onSelectDesignForOrder: (designId: string) => void;
   onAddCatalogueItem: (newItem: CatalogueItem) => void;
   onDeleteCatalogueItem: (designId: string) => void;
+  isReadOnly?: boolean;
 }
 
-export default function DressCatalogue({ catalogue, onSelectDesignForOrder, onAddCatalogueItem, onDeleteCatalogueItem }: DressCatalogueProps) {
+export default function DressCatalogue({ catalogue, onSelectDesignForOrder, onAddCatalogueItem, onDeleteCatalogueItem, isReadOnly = false }: DressCatalogueProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('ALL');
 
@@ -181,14 +182,16 @@ export default function DressCatalogue({ catalogue, onSelectDesignForOrder, onAd
           <div>
             <div className="flex items-center space-x-2.5">
               <h3 className="font-serif font-bold text-natural-espresso text-lg">แคตตาล็อกแบบชุด NUNUH Boutique</h3>
-              <button
-                type="button"
-                onClick={() => setIsModalOpen(true)}
-                className="bg-natural-clay hover:bg-natural-clay-dark text-white text-[10px] font-bold px-3 py-1 rounded-full flex items-center space-x-1 shadow-xs transition-all cursor-pointer"
-              >
-                <Plus className="h-3 w-3" />
-                <span>อัปโหลดแบบชุดเพิ่ม</span>
-              </button>
+              {!isReadOnly && (
+                <button
+                  type="button"
+                  onClick={() => setIsModalOpen(true)}
+                  className="bg-natural-clay hover:bg-natural-clay-dark text-white text-[10px] font-bold px-3 py-1 rounded-full flex items-center space-x-1 shadow-xs transition-all cursor-pointer"
+                >
+                  <Plus className="h-3 w-3" />
+                  <span>อัปโหลดแบบชุดเพิ่ม</span>
+                </button>
+              )}
             </div>
             <p className="text-xs text-natural-espresso/60">แคตตาล็อกคอลเลกชันยอดนิยมสำหรับนำเสนอ หรือนำมาใช้ตั้งต้นสำหรับออเดอร์สั่งตัด</p>
           </div>
@@ -292,18 +295,20 @@ export default function DressCatalogue({ catalogue, onSelectDesignForOrder, onAd
                   ผ้าแนะนำ: {item.fabricRecommend.split(' & ')[0]}
                 </span>
                 <div className="flex items-center space-x-2">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (window.confirm(`คุณต้องการลบแบบชุด "${item.name}" ออกจากแคตตาล็อกใช่หรือไม่?`)) {
-                        onDeleteCatalogueItem(item.id);
-                      }
-                    }}
-                    className="p-2 rounded-xl bg-rose-50 text-rose-700 hover:bg-rose-100 transition-all cursor-pointer border border-rose-200 text-xs flex items-center justify-center"
-                    title="ลบแบบชุดนี้"
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </button>
+                  {!isReadOnly && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (window.confirm(`คุณต้องการลบแบบชุด "${item.name}" ออกจากแคตตาล็อกใช่หรือไม่?`)) {
+                          onDeleteCatalogueItem(item.id);
+                        }
+                      }}
+                      className="p-2 rounded-xl bg-rose-50 text-rose-700 hover:bg-rose-100 transition-all cursor-pointer border border-rose-200 text-xs flex items-center justify-center"
+                      title="ลบแบบชุดนี้"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  )}
                   <button
                     type="button"
                     onClick={() => onSelectDesignForOrder(item.id)}

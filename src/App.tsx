@@ -38,6 +38,8 @@ export default function App() {
   const [reviews, setReviews] = useState<CustomerReview[]>([]);
   const [activeTab, setActiveTab] = useState<string>('tracker'); // tracker, orderForm, calendar, catalogue, reviews
   const [isCustomerMode, setIsCustomerMode] = useState<boolean>(false);
+  const [isStaffMode, setIsStaffMode] = useState<boolean>(false);
+  const [copiedStaffLink, setCopiedStaffLink] = useState<boolean>(false);
   const [theme, setTheme] = useState<string>(() => {
     return localStorage.getItem('nunuh_selected_theme') || 'pink';
   });
@@ -175,7 +177,11 @@ export default function App() {
 
     const params = new URLSearchParams(window.location.search);
     const modeParam = params.get('mode');
-    if (modeParam === 'customer') {
+    const roleParam = params.get('role');
+    if (modeParam === 'staff' || roleParam === 'staff') {
+      setIsStaffMode(true);
+      setActiveTab('orderForm');
+    } else if (modeParam === 'customer') {
       setIsCustomerMode(true);
       setActiveTab('customer');
     } else {
@@ -295,8 +301,13 @@ export default function App() {
   const handleAddOrder = (newOrder: Order) => {
     const updated = [newOrder, ...orders];
     saveOrdersToStorage(updated);
-    // หลังบันทึกย้ายแท็บไปหน้าติดตามงาน
-    setActiveTab('tracker');
+    // หลังบันทึกย้ายแท็บไปหน้าติดตามงาน (หากเป็นพนักงานให้คงอยู่ที่เดิมเพื่อความปลอดภัย)
+    if (isStaffMode) {
+      setActiveTab('orderForm');
+      alert(`บันทึกออเดอร์ใหม่ของคุณ ${newOrder.customerName} เรียบร้อยแล้วค่ะ! ✨`);
+    } else {
+      setActiveTab('tracker');
+    }
   };
 
   // ปรับปรุงสถานะติดตามงาน (Update Status)
@@ -423,7 +434,11 @@ export default function App() {
                   NUNUH
                 </h1>
                 <p className="text-[9px] font-bold tracking-widest text-natural-espresso/50 uppercase">
-                  {isCustomerMode ? 'CUSTOMER HUB • SECURE PORTAL' : 'ATELIER & COUTURE ORDER SYSTEM'}
+                  {isCustomerMode 
+                    ? 'CUSTOMER HUB • SECURE PORTAL' 
+                    : isStaffMode 
+                    ? 'STAFF PORTAL • ORDER & RECOMMEND ONLY' 
+                    : 'ATELIER & COUTURE ORDER SYSTEM'}
                 </p>
               </div>
             </div>
@@ -431,17 +446,19 @@ export default function App() {
             {/* Top Workspace Tab Navs */}
             {!isCustomerMode && (
               <nav className="flex items-center space-x-1 bg-natural-sand/50 p-1.5 rounded-2xl border border-natural-wheat/40">
-                <button
-                  onClick={() => setActiveTab('tracker')}
-                  className={`flex items-center space-x-2 px-4 py-2 rounded-xl text-xs font-bold tracking-wide transition-all cursor-pointer ${
-                    activeTab === 'tracker'
-                      ? 'bg-natural-clay text-white shadow-xs'
-                      : 'text-natural-espresso/70 hover:bg-natural-sand/80 hover:text-natural-espresso'
-                  }`}
-                >
-                  <ClipboardCheck className="h-4 w-4" />
-                  <span className="hidden sm:inline">ติดตามงาน</span>
-                </button>
+                {!isStaffMode && (
+                  <button
+                    onClick={() => setActiveTab('tracker')}
+                    className={`flex items-center space-x-2 px-4 py-2 rounded-xl text-xs font-bold tracking-wide transition-all cursor-pointer ${
+                      activeTab === 'tracker'
+                        ? 'bg-natural-clay text-white shadow-xs'
+                        : 'text-natural-espresso/70 hover:bg-natural-sand/80 hover:text-natural-espresso'
+                    }`}
+                  >
+                    <ClipboardCheck className="h-4 w-4" />
+                    <span className="hidden sm:inline">ติดตามงาน</span>
+                  </button>
+                )}
 
                 <button
                   onClick={() => setActiveTab('orderForm')}
@@ -455,17 +472,19 @@ export default function App() {
                   <span className="hidden sm:inline">รับออเดอร์ใหม่</span>
                 </button>
 
-                <button
-                  onClick={() => setActiveTab('calendar')}
-                  className={`flex items-center space-x-2 px-4 py-2 rounded-xl text-xs font-bold tracking-wide transition-all cursor-pointer ${
-                    activeTab === 'calendar'
-                      ? 'bg-natural-clay text-white shadow-xs'
-                      : 'text-natural-espresso/70 hover:bg-natural-sand/80 hover:text-natural-espresso'
-                  }`}
-                >
-                  <CalendarIcon className="h-4 w-4" />
-                  <span className="hidden sm:inline">ตารางกำหนดส่งชุด</span>
-                </button>
+                {!isStaffMode && (
+                  <button
+                    onClick={() => setActiveTab('calendar')}
+                    className={`flex items-center space-x-2 px-4 py-2 rounded-xl text-xs font-bold tracking-wide transition-all cursor-pointer ${
+                      activeTab === 'calendar'
+                        ? 'bg-natural-clay text-white shadow-xs'
+                        : 'text-natural-espresso/70 hover:bg-natural-sand/80 hover:text-natural-espresso'
+                    }`}
+                  >
+                    <CalendarIcon className="h-4 w-4" />
+                    <span className="hidden sm:inline">ตารางกำหนดส่งชุด</span>
+                  </button>
+                )}
 
                 <button
                   onClick={() => setActiveTab('catalogue')}
@@ -479,29 +498,33 @@ export default function App() {
                   <span className="hidden sm:inline">แบบชุดเสนอแนะนำ</span>
                 </button>
 
-                <button
-                  onClick={() => setActiveTab('customerDashboard')}
-                  className={`flex items-center space-x-2 px-4 py-2 rounded-xl text-xs font-bold tracking-wide transition-all cursor-pointer ${
-                    activeTab === 'customerDashboard'
-                      ? 'bg-natural-clay text-white shadow-xs'
-                      : 'text-natural-espresso/70 hover:bg-natural-sand/80 hover:text-natural-espresso'
-                  }`}
-                >
-                  <Users className="h-4 w-4" />
-                  <span className="hidden sm:inline">แดชบอร์ดลูกค้า & รีวิว (IDD IDH)</span>
-                </button>
+                {!isStaffMode && (
+                  <>
+                    <button
+                      onClick={() => setActiveTab('customerDashboard')}
+                      className={`flex items-center space-x-2 px-4 py-2 rounded-xl text-xs font-bold tracking-wide transition-all cursor-pointer ${
+                        activeTab === 'customerDashboard'
+                          ? 'bg-natural-clay text-white shadow-xs'
+                          : 'text-natural-espresso/70 hover:bg-natural-sand/80 hover:text-natural-espresso'
+                      }`}
+                    >
+                      <Users className="h-4 w-4" />
+                      <span className="hidden sm:inline">แดชบอร์ดลูกค้า & รีวิว (IDD IDH)</span>
+                    </button>
 
-                <button
-                  onClick={() => setActiveTab('customer')}
-                  className={`flex items-center space-x-2 px-4 py-2 rounded-xl text-xs font-bold tracking-wide transition-all cursor-pointer ${
-                    activeTab === 'customer'
-                      ? 'bg-natural-clay text-white shadow-xs'
-                      : 'text-natural-espresso/70 hover:bg-natural-sand/80 hover:text-natural-espresso'
-                  }`}
-                >
-                  <Sparkles className="h-4 w-4 text-natural-ochre" />
-                  <span>สำหรับลูกค้า</span>
-                </button>
+                    <button
+                      onClick={() => setActiveTab('customer')}
+                      className={`flex items-center space-x-2 px-4 py-2 rounded-xl text-xs font-bold tracking-wide transition-all cursor-pointer ${
+                        activeTab === 'customer'
+                          ? 'bg-natural-clay text-white shadow-xs'
+                          : 'text-natural-espresso/70 hover:bg-natural-sand/80 hover:text-natural-espresso'
+                      }`}
+                    >
+                      <Sparkles className="h-4 w-4 text-natural-ochre" />
+                      <span>สำหรับลูกค้า</span>
+                    </button>
+                  </>
+                )}
               </nav>
             )}
 
@@ -581,8 +604,66 @@ export default function App() {
       {/* 2. MAIN CORE CONTAINER */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8">
         
+        {/* Staff Mode Information Banner */}
+        {isStaffMode && (
+          <div className="mb-6 bg-amber-50/90 border border-amber-200/80 rounded-2xl p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
+            <div className="flex items-start space-x-3.5">
+              <div className="h-10 w-10 rounded-xl bg-amber-500/10 flex items-center justify-center text-amber-700 font-serif font-black shrink-0 text-lg">
+                🛡️
+              </div>
+              <div>
+                <h4 className="text-sm font-bold text-amber-950 font-serif">สิทธิ์การใช้งานสำหรับพนักงานรับออเดอร์ (Staff Workspace Portal)</h4>
+                <p className="text-xs text-amber-800/80 leading-relaxed mt-0.5">
+                  ระบบได้รับการจำกัดสิทธิ์ความปลอดภัยขั้นสูง: สามารถบันทึกรับออเดอร์ใหม่ และเปิดแบบชุดเสนอแนะจากดีไซเนอร์เท่านั้น 
+                  ทางระบบได้ปิดกั้นสรุปยอดการเงิน สถิติทางธุรกิจ ประวัติลูกค้า ตลอดจนปุ่มแก้ไขดีไซน์อื่นๆ เรียบร้อยแล้วเพื่อความปลอดภัยสูงสุดของแบรนด์ NUNUH
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center space-x-2 shrink-0">
+              <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-800 border border-amber-200 shadow-3xs">
+                เปิดระบบความปลอดภัยพนักงาน ✓
+              </span>
+            </div>
+          </div>
+        )}
+
+        {/* Admin/Owner Copy Staff Link Widget */}
+        {!isCustomerMode && !isStaffMode && (
+          <div className="mb-6 bg-white border border-natural-wheat rounded-2xl p-5 flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-xs">
+            <div className="flex items-start space-x-3.5">
+              <div className="h-10 w-10 rounded-xl bg-natural-clay/10 flex items-center justify-center text-natural-clay shrink-0">
+                <Users className="h-5 w-5" />
+              </div>
+              <div>
+                <h4 className="text-sm font-bold text-natural-espresso font-serif">ระบบสิทธิ์พนักงานรับออเดอร์ (Staff Ordering Portal)</h4>
+                <p className="text-xs text-natural-espresso/70 leading-relaxed mt-0.5">
+                  ส่งลิงก์ด้านขวาให้กับพนักงานรับหน้าร้าน เพื่อให้พนักงานใช้งานเฉพาะหน้า <strong>"รับออเดอร์ใหม่"</strong> และ <strong>"แบบชุดเสนอแนะนำ (แคตตาล็อกอ่านอย่างเดียว)"</strong> 
+                  โดยที่ระบบจะซิงค์ข้อมูลเรียลไทม์ขึ้นมาที่โต๊ะดีไซเนอร์หลังบ้าน และพนักงานจะไม่สามารถดูยอดการเงินหรือสถิติส่วนบุคคลของลูกค้าท่านอื่นได้
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center space-x-2 shrink-0 self-start md:self-center">
+              <button
+                onClick={() => {
+                  const staffUrl = `${window.location.origin}${window.location.pathname}?mode=staff`;
+                  navigator.clipboard.writeText(staffUrl);
+                  setCopiedStaffLink(true);
+                  setTimeout(() => setCopiedStaffLink(false), 3000);
+                }}
+                className={`px-4.5 py-2 rounded-xl text-xs font-bold tracking-wide transition-all duration-300 flex items-center space-x-2 shadow-xs cursor-pointer ${
+                  copiedStaffLink 
+                    ? 'bg-natural-sage text-white' 
+                    : 'bg-natural-clay hover:bg-natural-clay-dark text-white'
+                }`}
+              >
+                <span>{copiedStaffLink ? 'คัดลอกลิงก์สำเร็จ! ✓' : '📋 คัดลอกลิงก์รับออเดอร์สำหรับพนักงาน'}</span>
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Dynamic Stats Banner */}
-        {!isCustomerMode && <DashboardStats orders={orders} onSelectTab={setActiveTab} />}
+        {!isCustomerMode && !isStaffMode && <DashboardStats orders={orders} onSelectTab={setActiveTab} />}
 
         {/* Tab Content Display Area with Framer Motion Transition */}
         <div className="mt-2 min-h-[500px]">
@@ -648,6 +729,7 @@ export default function App() {
                     onSelectDesignForOrder={handleSelectDesignForOrder}
                     onAddCatalogueItem={handleAddCatalogueItem}
                     onDeleteCatalogueItem={handleDeleteCatalogueItem}
+                    isReadOnly={isStaffMode}
                   />
                 </div>
               )}
