@@ -353,7 +353,8 @@ export default function OrderTracker({ orders, onUpdateOrderStatus, onDeleteOrde
       order.customerPhone.includes(searchQuery) ||
       order.orderNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
       order.dressType.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (order.sku && order.sku.toLowerCase().includes(searchQuery.toLowerCase()));
+      (order.sku && order.sku.toLowerCase().includes(searchQuery.toLowerCase())) ||
+      (order.idhNumber && order.idhNumber.toLowerCase().includes(searchQuery.toLowerCase()));
 
     // กรองด้วยสาขา
     const matchesBranch = branchFilter === 'ALL' || order.branch === branchFilter;
@@ -799,6 +800,11 @@ export default function OrderTracker({ orders, onUpdateOrderStatus, onDeleteOrde
                       {order.branch && (
                         <span className="bg-purple-50 text-purple-800 text-[10px] font-extrabold px-2 py-0.5 rounded border border-purple-200">
                           🏪 {order.branch}
+                        </span>
+                      )}
+                      {order.isMatchingSet && (
+                        <span className="bg-amber-100 text-amber-900 text-[10px] font-extrabold px-2 py-0.5 rounded border border-amber-300 flex items-center gap-1 animate-pulse">
+                          ✨ งานเข้าชุด {order.idhNumber ? `(IDH: ${order.idhNumber})` : ''}
                         </span>
                       )}
                       {order.sku && (

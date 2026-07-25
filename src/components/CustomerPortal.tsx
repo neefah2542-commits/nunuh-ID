@@ -870,6 +870,11 @@ export default function CustomerPortal({
                                       SKU: {order.sku}
                                     </span>
                                   )}
+                                  {order.isMatchingSet && (
+                                    <span className="bg-amber-100 text-amber-900 text-[10px] font-bold px-2.5 py-0.5 rounded border border-amber-300 flex items-center gap-1">
+                                      ✨ งานเข้าชุด {order.idhNumber ? `(IDH: ${order.idhNumber})` : ''}
+                                    </span>
+                                  )}
                                 </div>
                                 <h5 className="font-serif font-bold text-base text-natural-espresso mt-1.5">
                                   ชุดใหม่: {order.dressType} — สี {order.fabricColor}
@@ -1182,6 +1187,11 @@ export default function CustomerPortal({
                               {order.sku && (
                                 <span className="text-natural-espresso/40 font-mono text-[10px] font-bold">
                                   SKU: {order.sku}
+                                </span>
+                              )}
+                              {order.isMatchingSet && (
+                                <span className="bg-amber-100 text-amber-900 text-[10px] font-bold px-2.5 py-0.5 rounded border border-amber-300 flex items-center gap-1">
+                                  ✨ งานเข้าชุด {order.idhNumber ? `(IDH: ${order.idhNumber})` : ''}
                                 </span>
                               )}
                             </div>

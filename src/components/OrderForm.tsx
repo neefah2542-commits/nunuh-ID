@@ -77,6 +77,10 @@ export default function OrderForm({ catalogue, onAddOrder, nextOrderNumber, orde
   const [isSuccess, setIsSuccess] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
+  // งานเข้าชุด
+  const [isMatchingSet, setIsMatchingSet] = useState(false);
+  const [idhNumber, setIdhNumber] = useState('');
+
   // ค้นหาประวัติออเดอร์เดิมของลูกค้าตามเบอร์โทรศัพท์หรือชื่อ
   const getPastCustomerOrders = () => {
     if (!orders || orders.length === 0) return [];
@@ -123,6 +127,8 @@ export default function OrderForm({ catalogue, onAddOrder, nextOrderNumber, orde
     if (!lineUserId && pastOrder.lineUserId) setLineUserId(pastOrder.lineUserId);
     if (pastOrder.customerCategory) setCustomerCategory(pastOrder.customerCategory);
     if (pastOrder.membershipTier) setMembershipTier(pastOrder.membershipTier);
+    if (pastOrder.isMatchingSet !== undefined) setIsMatchingSet(pastOrder.isMatchingSet);
+    if (pastOrder.idhNumber) setIdhNumber(pastOrder.idhNumber);
   };
 
   // จัดการเมื่อเลือกแบบในแคตตาล็อก
@@ -258,7 +264,9 @@ export default function OrderForm({ catalogue, onAddOrder, nextOrderNumber, orde
       customerCategory: customerCategory || undefined,
       membershipTier: membershipTier,
       externalOrderId: externalOrderId.trim() || undefined,
-      branch: branch || 'สาขานราธิวาส'
+      branch: branch || 'สาขานราธิวาส',
+      isMatchingSet: isMatchingSet || undefined,
+      idhNumber: isMatchingSet ? (idhNumber.trim() || undefined) : undefined
     };
 
     onAddOrder(newOrder);
@@ -274,6 +282,8 @@ export default function OrderForm({ catalogue, onAddOrder, nextOrderNumber, orde
       setMembershipTier('MEMBER');
       setExternalOrderId('');
       setBranch('สาขานราธิวาส');
+      setIsMatchingSet(false);
+      setIdhNumber('');
       setFabricColor('');
       setSku('');
       setChest('');
@@ -585,7 +595,12 @@ export default function OrderForm({ catalogue, onAddOrder, nextOrderNumber, orde
                         <button
                           key={cat}
                           type="button"
-                          onClick={() => setCustomerCategory(cat)}
+                          onClick={() => {
+                            setCustomerCategory(cat);
+                            if (cat === 'IDH') {
+                              setIsMatchingSet(true);
+                            }
+                          }}
                           className={`py-1.5 px-1 rounded-lg text-xs font-bold transition-all text-center cursor-pointer border ${
                             isSelected
                               ? 'bg-natural-clay text-white border-natural-clay'
@@ -597,6 +612,34 @@ export default function OrderForm({ catalogue, onAddOrder, nextOrderNumber, orde
                       );
                     })}
                   </div>
+                </div>
+
+                {/* เป็นงานเข้าชุด */}
+                <div className="pt-2">
+                  <label className="flex items-center space-x-2.5 cursor-pointer py-1">
+                    <input
+                      type="checkbox"
+                      checked={isMatchingSet}
+                      onChange={(e) => {
+                        setIsMatchingSet(e.target.checked);
+                      }}
+                      className="h-4.5 w-4.5 rounded border-natural-wheat text-natural-clay focus:ring-natural-clay/20 cursor-pointer"
+                    />
+                    <span className="text-xs font-bold text-natural-espresso">เป็นงานเข้าชุด (Matching Set)</span>
+                  </label>
+                  
+                  {isMatchingSet && (
+                    <div className="mt-2 pl-7 animate-fade-in">
+                      <label className="block text-[11px] font-bold text-natural-clay mb-1">เลข IDH สำหรับงานเข้าชุด (IDH Number)</label>
+                      <input
+                        type="text"
+                        value={idhNumber}
+                        onChange={(e) => setIdhNumber(e.target.value)}
+                        placeholder="ระบุเลข IDH เช่น IDH-88, IDH-102"
+                        className="w-full max-w-xs text-xs px-3 py-2 rounded-lg border border-natural-wheat focus:outline-none focus:ring-2 focus:ring-natural-clay/20 focus:border-natural-clay bg-amber-50/20 font-bold text-natural-espresso placeholder-natural-espresso/40"
+                      />
+                    </div>
+                  )}
                 </div>
 
                 {/* ประเภทบัตรสมาชิก */}
@@ -815,6 +858,31 @@ export default function OrderForm({ catalogue, onAddOrder, nextOrderNumber, orde
                         </div>
                       )}
                     </div>
+                  </div>
+                </div>
+
+                {/* 📲 LINE Official QR Code Section for Staff to Show Customers */}
+                <div className="bg-emerald-50/70 border border-emerald-200 rounded-xl p-4 flex items-center space-x-4 shadow-3xs animate-fade-in mt-4">
+                  <div className="bg-white p-2 rounded-lg border border-emerald-200 shadow-3xs shrink-0 flex flex-col items-center">
+                    <img 
+                      src="https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=https%3A%2F%2Fline.me%2FR%2Fti%2Fp%2F%40237aynfq" 
+                      alt="LINE QR Code" 
+                      className="h-18 w-18"
+                      referrerPolicy="no-referrer"
+                    />
+                    <span className="text-[8px] font-bold text-[#05b34c] mt-1">สแกน QR Code</span>
+                  </div>
+                  <div className="space-y-1">
+                    <div className="flex items-center space-x-1.5">
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-bold bg-[#05b34c] text-white tracking-wider animate-pulse">
+                        LINE OFFICIAL
+                      </span>
+                      <span className="text-[10px] font-bold text-natural-espresso/60">@237aynfq</span>
+                    </div>
+                    <h4 className="text-xs font-bold text-natural-espresso font-serif">ให้ลูกค้าสแกนแอดไลน์ทันที! 📲</h4>
+                    <p className="text-[10px] text-natural-espresso/70 leading-relaxed">
+                      พนักงานกรุณาแจ้งให้ลูกค้า <strong>สแกน QR Code นี้เพื่อเพิ่มเพื่อน</strong> และทักแชทเข้ามา เพื่อเปิดรับระบบแจ้งเตือนอัปเดตสถานะชุดสั่งตัดผ่านไลน์แบบอัตโนมัติค่ะ ✨
+                    </p>
                   </div>
                 </div>
               </div>

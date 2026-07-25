@@ -72,6 +72,8 @@ export interface Order {
   lineUserId?: string;         // รหัส LINE User ID สำหรับติดต่อ
   slipImage?: string;          // ภาพสลิปโอนเงิน (Base64 string)
   feedbacks?: FeedbackMessage[]; // ข้อความตอบกลับ/แจ้งเตือนจากลูกค้าหรือร้านค้า
+  isMatchingSet?: boolean;     // ระบุว่าเป็นงานเข้าชุด
+  idhNumber?: string;          // เลข IDH สำหรับงานเข้าชุด (เช่น IDH-88)
 }
 
 export interface FeedbackMessage {

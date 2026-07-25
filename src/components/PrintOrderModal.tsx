@@ -428,6 +428,9 @@ export default function PrintOrderModal({ order, isOpen, onClose }: PrintOrderMo
                     {order.branch && (
                       <p className="text-natural-espresso/80 font-bold text-[11px] mt-0.5">🏪 สาขา: <span className="text-purple-800 bg-purple-50 px-1.5 py-0.5 rounded border border-purple-200 text-[10px] inline-block">{order.branch}</span></p>
                     )}
+                    {order.isMatchingSet && (
+                      <p className="text-natural-espresso/80 font-bold text-[11px] mt-0.5">✨ งานเข้าชุด: <span className="text-amber-900 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-300 text-[10px] font-bold inline-block">{order.idhNumber ? `IDH: ${order.idhNumber}` : 'ใช่'}</span></p>
+                    )}
                   </div>
                   <div className="space-y-1">
                     <p className="text-[10px] text-natural-espresso/45 font-bold uppercase">วันที่สั่งจองและจัดส่ง</p>

@@ -36,6 +36,8 @@ export default function EditOrderModal({ order, onClose, onSave }: EditOrderModa
   const [customerCategory, setCustomerCategory] = useState(order.customerCategory || 'ทั่วไป');
   const [membershipTier, setMembershipTier] = useState<'PRIME' | 'PRIVILEGE' | 'TRADER' | 'MEMBER'>(order.membershipTier || 'MEMBER');
   const [externalOrderId, setExternalOrderId] = useState(order.externalOrderId || '');
+  const [isMatchingSet, setIsMatchingSet] = useState(order.isMatchingSet || false);
+  const [idhNumber, setIdhNumber] = useState(order.idhNumber || '');
 
   // Dress specification states
   const [dressType, setDressType] = useState(order.dressType || 'เดรสราตรี');
@@ -229,7 +231,9 @@ export default function EditOrderModal({ order, onClose, onSave }: EditOrderModa
       customerPhotoFront: customerPhotoFront || undefined,
       customerPhotoSide: customerPhotoSide || undefined,
       customerPhotoBack: customerPhotoBack || undefined,
-      slipImage: slipImage || undefined
+      slipImage: slipImage || undefined,
+      isMatchingSet: isMatchingSet || undefined,
+      idhNumber: isMatchingSet ? (idhNumber.trim() || undefined) : undefined
     };
 
     onSave(updatedOrder);
@@ -349,13 +353,47 @@ export default function EditOrderModal({ order, onClose, onSave }: EditOrderModa
                   <label className="block text-xs font-semibold text-natural-espresso/70 mb-1">ประเภทงาน (Job Type)</label>
                   <select
                     value={customerCategory}
-                    onChange={(e) => setCustomerCategory(e.target.value)}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setCustomerCategory(val);
+                      if (val === 'IDH') {
+                        setIsMatchingSet(true);
+                      }
+                    }}
                     className="w-full text-sm px-3 py-2 rounded-xl border border-natural-wheat focus:outline-none focus:ring-2 focus:ring-natural-clay/20 focus:border-natural-clay bg-natural-cream/10 cursor-pointer"
                   >
                     <option value="IDD">IDD (พรีเมียมตัดเฉพาะตัว)</option>
                     <option value="IDH">IDH (กึ่งกูตูร์)</option>
                     <option value="ทั่วไป">ทั่วไป (Standard Work)</option>
                   </select>
+                </div>
+
+                {/* เป็นงานเข้าชุด */}
+                <div className="pt-1.5">
+                  <label className="flex items-center space-x-2 cursor-pointer py-1">
+                    <input
+                      type="checkbox"
+                      checked={isMatchingSet}
+                      onChange={(e) => {
+                        setIsMatchingSet(e.target.checked);
+                      }}
+                      className="h-4 w-4 rounded border-natural-wheat text-natural-clay focus:ring-natural-clay/20 cursor-pointer"
+                    />
+                    <span className="text-xs font-bold text-natural-espresso">เป็นงานเข้าชุด (Matching Set)</span>
+                  </label>
+                  
+                  {isMatchingSet && (
+                    <div className="mt-2 pl-6 animate-fade-in">
+                      <label className="block text-[11px] font-bold text-natural-clay mb-1">เลข IDH สำหรับงานเข้าชุด (IDH Number)</label>
+                      <input
+                        type="text"
+                        value={idhNumber}
+                        onChange={(e) => setIdhNumber(e.target.value)}
+                        placeholder="ระบุเลข IDH เช่น IDH-88, IDH-102"
+                        className="w-full text-xs px-3 py-2 rounded-xl border border-natural-wheat focus:outline-none focus:ring-2 focus:ring-natural-clay/20 focus:border-natural-clay bg-amber-50/20 font-bold text-natural-espresso placeholder-natural-espresso/40"
+                      />
+                    </div>
+                  )}
                 </div>
 
                 <div>
