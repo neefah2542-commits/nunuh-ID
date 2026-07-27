@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Order, STATUS_MAP, STANDARD_SIZE_CHART, CatalogueItem } from '../types';
 import { INITIAL_CATALOGUE } from '../initialData';
 import { Printer, X, Scissors, User, Phone, Calendar, DollarSign, Sparkles, Receipt } from 'lucide-react';
@@ -91,8 +92,8 @@ export default function PrintOrderModal({ order, isOpen, onClose }: PrintOrderMo
     isValueValid(order.measurements[field.key as keyof typeof order.measurements])
   );
 
-  return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-natural-espresso/45 backdrop-blur-sm flex items-center justify-center p-4">
+  return createPortal(
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-natural-espresso/45 backdrop-blur-sm flex items-center justify-center p-4 print-modal-portal">
       {/* Container Card */}
       <div className="bg-white rounded-2xl w-full max-w-4xl shadow-2xl border border-natural-wheat flex flex-col max-h-[90vh]">
         
@@ -682,6 +683,7 @@ export default function PrintOrderModal({ order, isOpen, onClose }: PrintOrderMo
         </div>
 
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
