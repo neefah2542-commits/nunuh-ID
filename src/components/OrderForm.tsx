@@ -501,7 +501,16 @@ export default function OrderForm({ catalogue, onAddOrder, nextOrderNumber, orde
                   <input
                     type="text"
                     value={lineUserId}
-                    onChange={(e) => setLineUserId(e.target.value)}
+                    onChange={(e) => {
+                      const val = e.target.value.trim();
+                      const matches = val.match(/U[0-9a-zA-Z]{32}/g);
+                      if (matches && matches.length > 0) {
+                        // Customer ID is always the last match in a full URL
+                        setLineUserId(matches[matches.length - 1]);
+                      } else {
+                        setLineUserId(e.target.value);
+                      }
+                    }}
                     placeholder="เช่น U1234567890abcdef1234567890abcdef"
                     className="w-full text-sm px-3 py-2 rounded-xl border border-natural-wheat focus:outline-none focus:ring-2 focus:ring-natural-clay/20 focus:border-natural-clay bg-natural-cream/20 font-mono"
                   />

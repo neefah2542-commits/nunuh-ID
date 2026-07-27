@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Order, OrderStatus, STATUS_MAP, StatusConfig } from '../types';
 import { 
   Search, 
@@ -59,12 +59,21 @@ export default function OrderTracker({ orders, onUpdateOrderStatus, onDeleteOrde
   const [showUrlSettings, setShowUrlSettings] = useState(false);
 
   const [lineOaId, setLineOaId] = useState(() => {
-    return localStorage.getItem('nunuh_line_oa_id') || '@237ayntq';
+    return localStorage.getItem('nunuh_line_oa_id') || '@237aynfq';
   });
 
   const [lineOaChatUrl, setLineOaChatUrl] = useState(() => {
     return localStorage.getItem('nunuh_line_oa_chat_url') || 'https://chat.line.biz/';
   });
+
+  const [lineConfig, setLineConfig] = useState<{ tokenSet: boolean; secretSet: boolean } | null>(null);
+
+  useEffect(() => {
+    fetch('/api/line-config-status')
+      .then(res => res.json())
+      .then(data => setLineConfig(data))
+      .catch(err => console.error('Error fetching LINE config status:', err));
+  }, [showUrlSettings]);
 
   const handleSavePublicUrl = (url: string) => {
     let cleanUrl = url.trim();
@@ -156,11 +165,18 @@ export default function OrderTracker({ orders, onUpdateOrderStatus, onDeleteOrde
   };
 
   const getLineDetails = (order: Order) => {
-    const rawUserId = order.lineUserId?.trim();
+    const rawUserId = order.lineUserId?.trim() || '';
     const socialInfo = getSocialInfo(order.customerSocial);
     
-    // Check if rawUserId is a real LINE User ID (starts with U and followed by 32 alphanumeric chars)
-    const isRealUserId = !!rawUserId && /^U[0-9a-zA-Z]{32}$/.test(rawUserId);
+    // Check if rawUserId is a URL or contains a real LINE User ID (starts with U and followed by 32 alphanumeric chars)
+    let extractedUserId = '';
+    const matches = rawUserId.match(/U[0-9a-zA-Z]{32}/g);
+    if (matches && matches.length > 0) {
+      // The customer's User ID is always the last U[0-9a-zA-Z]{32} in the URL or string
+      extractedUserId = matches[matches.length - 1];
+    }
+    
+    const isRealUserId = !!extractedUserId && /^U[0-9a-zA-Z]{32}$/.test(extractedUserId);
     
     let hasLineUserId = false;
     let lineUserId = '';
@@ -170,7 +186,7 @@ export default function OrderTracker({ orders, onUpdateOrderStatus, onDeleteOrde
     
     if (isRealUserId) {
       hasLineUserId = true;
-      lineUserId = rawUserId!;
+      lineUserId = extractedUserId;
     } else if (rawUserId && rawUserId.length > 0) {
       // If the field is filled but is not a real LINE User ID, it is a personal LINE ID!
       hasPersonalLineId = true;
@@ -178,11 +194,17 @@ export default function OrderTracker({ orders, onUpdateOrderStatus, onDeleteOrde
     }
     
     if (socialInfo && socialInfo.type === 'line' && socialInfo.cleanId) {
-      const isSocialRealUserId = /^U[0-9a-zA-Z]{32}$/.test(socialInfo.cleanId);
+      let socialExtracted = '';
+      const socialMatches = socialInfo.cleanId.match(/U[0-9a-zA-Z]{32}/g);
+      if (socialMatches && socialMatches.length > 0) {
+        socialExtracted = socialMatches[socialMatches.length - 1];
+      }
+      
+      const isSocialRealUserId = !!socialExtracted && /^U[0-9a-zA-Z]{32}$/.test(socialExtracted);
       if (isSocialRealUserId) {
         if (!hasLineUserId) {
           hasLineUserId = true;
-          lineUserId = socialInfo.cleanId;
+          lineUserId = socialExtracted;
           hasPersonalLineId = false; // cleanId is actually a LINE User ID, not a personal ID
         }
       } else if (!hasLineUserId && !hasPersonalLineId) {
@@ -197,6 +219,20 @@ export default function OrderTracker({ orders, onUpdateOrderStatus, onDeleteOrde
       hasPersonalLineId,
       personalLineId
     };
+  };
+
+  const getDirectOaUrl = (order: Order, lineUserId: string) => {
+    const rawUserId = order.lineUserId?.trim() || '';
+    if (rawUserId.startsWith('http://') || rawUserId.startsWith('https://')) {
+      return rawUserId;
+    }
+    const shopMatches = lineOaChatUrl.match(/U[0-9a-zA-Z]{32}/g);
+    if (shopMatches && shopMatches.length > 0) {
+      const shopId = shopMatches[0];
+      return `https://chat.line.biz/${shopId}/chat/${lineUserId}`;
+    }
+    const cleanId = lineOaId.startsWith('@') ? lineOaId : `@${lineOaId}`;
+    return `https://manager.line.biz/account/${cleanId}/chat/user/${lineUserId}`;
   };
 
   const handleDirectLineChat = (order: Order) => {
@@ -220,8 +256,7 @@ export default function OrderTracker({ orders, onUpdateOrderStatus, onDeleteOrde
 
     if (hasLineUserId) {
       // ถ้ามี LINE User ID ของระบบ LINE OA ให้เปิดห้องแชทลูกค้ารายนั้นโดยตรงบน LINE OA Manager ทันที
-      const cleanId = lineOaId.startsWith('@') ? lineOaId : `@${lineOaId}`;
-      const directOaUrl = `https://manager.line.biz/account/${cleanId}/chat/user/${lineUserId}`;
+      const directOaUrl = getDirectOaUrl(order, lineUserId);
       
       alert(
         `📋 คัดลอกข้อความและสถานะอัปเดตของ คุณ ${order.customerName} เรียบร้อยแล้วค่ะ!\n\n` +
@@ -249,11 +284,11 @@ export default function OrderTracker({ orders, onUpdateOrderStatus, onDeleteOrde
   const handleOpenLineOaChat = (order: Order) => {
     const { hasLineUserId, lineUserId } = getLineDetails(order);
 
-    const cleanId = lineOaId.startsWith('@') ? lineOaId : `@${lineOaId}`;
     if (hasLineUserId) {
-      const url = `https://manager.line.biz/account/${cleanId}/chat/user/${lineUserId}`;
+      const url = getDirectOaUrl(order, lineUserId);
       window.open(url, '_blank');
     } else {
+      const cleanId = lineOaId.startsWith('@') ? lineOaId : `@${lineOaId}`;
       const generalOaUrl = lineOaChatUrl || `https://manager.line.biz/account/${cleanId}/chat/`;
       window.open(generalOaUrl, '_blank');
     }
@@ -291,8 +326,7 @@ export default function OrderTracker({ orders, onUpdateOrderStatus, onDeleteOrde
           })
         });
 
-        const cleanId = lineOaId.startsWith('@') ? lineOaId : `@${lineOaId}`;
-        const directOaUrl = `https://manager.line.biz/account/${cleanId}/chat/user/${lineUserId}`;
+        const directOaUrl = getDirectOaUrl(order, lineUserId);
 
         if (response.ok) {
           const resData = await response.json();
@@ -308,17 +342,18 @@ export default function OrderTracker({ orders, onUpdateOrderStatus, onDeleteOrde
           }
         } else {
           // หาก API เกิดความผิดพลาด ให้คัดลอกและเปิดหน้าแชทของลูกค้ารายนั้นโดยตรงเพื่อให้แอดมินกดวางส่งเอง
+          const errData = await response.json().catch(() => ({}));
+          const errMsg = errData.error || "ไม่ได้เปิดระบบเชื่อมต่อบอท API";
           alert(
             `📋 คัดลอกข้อความสถานะเรียบร้อยแล้วค่ะ!\n` +
-            `(ระบบการแจ้งเตือนอัตโนมัติแจ้งว่า: "ไม่มีการตั้งค่า LINE Messaging API")\n` +
-            `ระบบจะนำท่านไปยังห้องแชทลูกค้าโดยตรงในระบบ LINE OA Manager เพื่อแชทและนำข้อความวางส่งคุยต่อได้ทันทีค่ะ 💬`
+            `(ระบบแจ้งเตือนอัตโนมัติขัดข้อง: ${errMsg})\n\n` +
+            `ระบบจะนำท่านไปยังห้องแชทลูกค้าโดยตรงในระบบ LINE OA Manager เพื่อให้คุณแชทและนำข้อความวาง (Paste) ส่งคุยต่อได้ทันทีค่ะ 💬`
           );
           window.open(directOaUrl, '_blank');
         }
       } catch (err: any) {
         // หากมี error ใดๆ เช่น เชื่อมต่อไม่ได้ ให้พาไปหน้าแชทตรงพร้อมสถานะที่ก๊อปปี้แล้ว
-        const cleanId = lineOaId.startsWith('@') ? lineOaId : `@${lineOaId}`;
-        const directOaUrl = `https://manager.line.biz/account/${cleanId}/chat/user/${lineUserId}`;
+        const directOaUrl = getDirectOaUrl(order, lineUserId);
         alert(
           `📋 คัดลอกข้อความสถานะแล้ว!\n` +
           `(ระบบการแจ้งเตือนอัตโนมัติติดขัดชั่วคราว: ${err.message || err})\n` +
@@ -602,7 +637,7 @@ export default function OrderTracker({ orders, onUpdateOrderStatus, onDeleteOrde
               {/* LINE OA ID Field */}
               <div className="space-y-1.5">
                 <label className="text-[10.5px] font-bold text-natural-espresso/70 block">
-                  🟢 LINE OA ID ของร้าน (เช่น @237ayntq)
+                  🟢 LINE OA ID ของร้าน (เช่น @237aynfq)
                 </label>
                 <div className="relative">
                   <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-xs font-bold text-natural-espresso/45">ID</span>
@@ -610,7 +645,7 @@ export default function OrderTracker({ orders, onUpdateOrderStatus, onDeleteOrde
                     type="text"
                     value={lineOaId}
                     onChange={(e) => handleSaveLineOaId(e.target.value)}
-                    placeholder="เช่น @237ayntq"
+                    placeholder="เช่น @237aynfq"
                     className="w-full text-xs pl-8 pr-4 py-2.5 rounded-xl border border-natural-wheat focus:outline-none focus:ring-2 focus:ring-natural-clay/20 bg-natural-cream/5 font-mono"
                   />
                 </div>
@@ -644,6 +679,69 @@ export default function OrderTracker({ orders, onUpdateOrderStatus, onDeleteOrde
                 - <strong>กรณีใช้ LINE ส่วนตัว:</strong> ให้ใส่ไอดีลูกค้าไว้ใน "ช่องทางติดต่อ" (เช่น <code className="bg-emerald-100/50 px-1 rounded">line: somchai_id</code>) ระบบจะสร้างปุ่ม <strong>"เปิด LINE ลูกค้าโดยตรง"</strong> ให้เปิดคุยได้ทันที <br />
                 - <strong>กรณีใช้ LINE OA:</strong> กดปุ่ม <strong>"คุย LINE (แอดมิน)"</strong> เพื่อคัดลอกข้อความแจ้งสถานะและเปิดระบบแชท LINE OA ของร้านท่าน แล้วใช้ปุ่มค้นหาด้วยชื่อลูกค้าเพื่อวางข้อความพูดคุยได้ทันทีเลยค่ะ!
               </p>
+            </div>
+
+            {/* LINE Messaging API Diagnostics */}
+            <div className="border border-teal-200/60 bg-teal-50/20 p-4 rounded-xl ml-3 space-y-3">
+              <div className="flex items-center justify-between border-b border-teal-100/50 pb-2">
+                <span className="text-xs font-black text-teal-900 flex items-center gap-1.5">
+                  <span className="relative flex h-2 w-2">
+                    <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${lineConfig?.tokenSet ? 'bg-emerald-400' : 'bg-rose-400'}`}></span>
+                    <span className={`relative inline-flex rounded-full h-2 w-2 ${lineConfig?.tokenSet ? 'bg-emerald-500' : 'bg-rose-500'}`}></span>
+                  </span>
+                  <span>ระบบส่งสถานะ LINE อัตโนมัติ (LINE Messaging API)</span>
+                </span>
+                <span className="text-[9.5px] font-bold text-teal-700 bg-teal-50 px-2 py-0.5 rounded-full border border-teal-100">
+                  ระบบแชทอัตโนมัติ
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                <div className="bg-white p-2.5 rounded-lg border border-teal-100/30 flex items-center justify-between">
+                  <span className="text-natural-espresso/70 font-medium">LINE Channel Access Token:</span>
+                  {lineConfig === null ? (
+                    <span className="text-[10px] text-natural-espresso/40">กำลังโหลด...</span>
+                  ) : lineConfig.tokenSet ? (
+                    <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded flex items-center gap-1">
+                      🟢 ตั้งค่าแล้ว
+                    </span>
+                  ) : (
+                    <span className="text-[10px] font-bold text-rose-500 bg-rose-50 px-1.5 py-0.5 rounded flex items-center gap-1">
+                      🔴 ยังไม่ได้ตั้งค่า
+                    </span>
+                  )}
+                </div>
+
+                <div className="bg-white p-2.5 rounded-lg border border-teal-100/30 flex items-center justify-between">
+                  <span className="text-natural-espresso/70 font-medium">LINE Channel Secret:</span>
+                  {lineConfig === null ? (
+                    <span className="text-[10px] text-natural-espresso/40">กำลังโหลด...</span>
+                  ) : lineConfig.secretSet ? (
+                    <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded flex items-center gap-1">
+                      🟢 ตั้งค่าแล้ว
+                    </span>
+                  ) : (
+                    <span className="text-[10px] font-bold text-rose-500 bg-rose-50 px-1.5 py-0.5 rounded flex items-center gap-1">
+                      🔴 ยังไม่ได้ตั้งค่า
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              {!lineConfig?.tokenSet && (
+                <div className="text-[10.5px] text-natural-espresso/70 leading-relaxed bg-white/60 p-3 rounded-lg border border-natural-wheat/40 space-y-1.5">
+                  <p className="font-bold text-rose-600">💡 ปุ่ม "ส่งสถานะเข้า LINE 🚀" จะทำงานแบบก๊อปปี้ข้อความอัตโนมัติ (โหมดจำลอง) จนกว่าจะทำการตั้งค่า!</p>
+                  <p className="font-medium text-[10px] text-natural-espresso/60">
+                    หากต้องการเปิดระบบให้สามารถกดปุ่มแล้วส่งข้อความเข้าห้องแชทของลูกค้าโดยตรงแบบ <strong>อัตโนมัติ 100%</strong> รบกวนตั้งค่าดังนี้ค่ะ:
+                  </p>
+                  <ol className="list-decimal list-inside space-y-1 pl-1 text-[10px] text-natural-espresso/60">
+                    <li>เข้าสู่เว็บไซต์ <a href="https://developer.line.biz" target="_blank" rel="noopener noreferrer" className="text-teal-700 underline font-semibold">LINE Developers Console</a> แล้วเลือก Channel ของร้านคุณ</li>
+                    <li>ไปที่เมนู <strong>Messaging API</strong> แล้วเลื่อนลงไปล่างสุด กดสร้าง (Issue) <strong>Channel Access Token</strong></li>
+                    <li>นำ Token ยาวๆ ที่ได้ และ Channel Secret (จากแถบ Basic Settings) ไปใส่ในช่อง <strong>Environment Variables (ตัวแปรสภาพแวดล้อม)</strong> ในหน้าตั้งค่าหลังบ้านของระบบ AI Studio</li>
+                    <li>เมื่อตั้งค่าเรียบร้อยแล้ว สถานะด้านบนจะเปลี่ยนเป็นสีเขียว 🟢 และระบบจะส่งแชทอัตโนมัติทันทีเมื่อกดปุ่มค่ะ!</li>
+                  </ol>
+                </div>
+              )}
             </div>
           </div>
 

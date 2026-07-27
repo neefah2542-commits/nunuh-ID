@@ -206,6 +206,14 @@ app.post("/api/send-status", async (req: any, res) => {
   }
 });
 
+// API Endpoint to check LINE Messaging API configuration status
+app.get("/api/line-config-status", (req, res) => {
+  res.json({
+    tokenSet: !!(process.env.LINE_CHANNEL_ACCESS_TOKEN || "").trim(),
+    secretSet: !!(process.env.LINE_CHANNEL_SECRET || "").trim(),
+  });
+});
+
 // LINE Webhook Endpoint
 app.post("/api/webhook/line", async (req: any, res) => {
   const LINE_CHANNEL_SECRET = process.env.LINE_CHANNEL_SECRET || "";
