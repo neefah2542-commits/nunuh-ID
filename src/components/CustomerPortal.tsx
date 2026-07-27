@@ -55,6 +55,9 @@ export default function CustomerPortal({
   nextOrderNumber, 
   isCustomerLocked = false 
 }: CustomerPortalProps) {
+  // Retrieve custom LINE OA settings from localStorage (configured by admin)
+  const lineOaId = localStorage.getItem('nunuh_line_oa_id') || '';
+
   // States for Order Tracking
   const [searchQuery, setSearchQuery] = useState('');
   const [searchedOrders, setSearchedOrders] = useState<Order[] | null>(null);
@@ -573,45 +576,6 @@ export default function CustomerPortal({
           </form>
         )}
 
-        {/* Support LINE shortcut */}
-        <div className="bg-[#06C755]/5 border border-[#06C755]/20 rounded-2xl p-5 flex flex-col md:flex-row justify-between items-center gap-4">
-          <div className="flex flex-col sm:flex-row items-center sm:items-start gap-4 text-center sm:text-left w-full md:w-auto">
-            <div className="p-2.5 bg-[#06C755] text-white rounded-xl shrink-0 animate-bounce shadow-md">
-              <MessageSquare className="h-5 w-5" />
-            </div>
-            <div className="space-y-1">
-              <p className="text-sm font-bold text-natural-espresso">แชทติดต่อดีไซเนอร์ NUNUH ผ่าน LINE Official</p>
-              <p className="text-xs text-natural-espresso/70 max-w-xl">
-                กดปุ่ม <span className="font-bold text-[#05b34c]">"ไปยังไลน์ @237aynfq"</span> เพื่อเพิ่มเพื่อนและคุยกัน สามารถแชทคุยกับแอดมิน/ดีไซเนอร์ได้ทันที หรือสแกน QR Code เพื่อเพิ่มเพื่อนผ่าน LINE ได้เลยค่ะ 📲
-              </p>
-            </div>
-          </div>
-          
-          <div className="flex flex-col sm:flex-row items-center gap-4 w-full sm:w-auto shrink-0 justify-center md:justify-end">
-            {/* Elegant QR Code wrapper */}
-            <div className="bg-white p-2 rounded-xl border border-[#06C755]/20 shadow-xs flex flex-col items-center shrink-0">
-              <img 
-                src="https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=https%3A%2F%2Fline.me%2FR%2Fti%2Fp%2F%40237aynfq" 
-                alt="LINE Official QR Code @237aynfq"
-                className="w-20 h-20 md:w-24 md:h-24 transition-transform hover:scale-105 duration-200"
-                referrerPolicy="no-referrer"
-              />
-              <span className="text-[10px] font-bold text-[#05b34c] mt-1.5 flex items-center gap-1">
-                <span>สแกน QR Code แอดไลน์</span>
-              </span>
-            </div>
-
-            <a
-              href="https://line.me/R/oaMessage/@237aynfq/"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="bg-[#06C755] hover:bg-[#05b34c] text-white text-xs font-bold px-5 py-3 rounded-xl transition-all shadow-sm flex items-center gap-1.5 whitespace-nowrap cursor-pointer w-full sm:w-auto justify-center"
-            >
-              <span>ไปยังไลน์ @237aynfq 💬</span>
-            </a>
-          </div>
-        </div>
-
         {/* Search Results Display */}
         <div className="space-y-6">
           {hasSearched && searchedOrders && searchedOrders.length > 0 && (() => {
@@ -810,16 +774,23 @@ export default function CustomerPortal({
                                 </p>
                                 <div className="text-xs text-natural-espresso/60 font-medium flex flex-wrap items-center gap-1.5">
                                   <span className="text-natural-clay">✉️ ช่องทางติดต่อ:</span>
-                                  <a 
-                                    href="https://line.me/R/oaMessage/@237aynfq/"
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="bg-[#06C755]/10 hover:bg-[#06C755]/20 text-[#05b34c] font-black px-2 py-0.5 rounded border border-[#06C755]/30 inline-flex items-center space-x-1 transition-all"
-                                    title="คลิกเพื่อแชทกับแอดมิน @237aynfq บน LINE ทันที"
-                                  >
-                                    <MessageSquare className="h-3 w-3" />
-                                    <span>{cSocial} (LINE @237aynfq)</span>
-                                  </a>
+                                  {lineOaId ? (
+                                    <a 
+                                      href={`https://line.me/R/oaMessage/${lineOaId.replace('@', '')}/`}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="bg-[#06C755]/10 hover:bg-[#06C755]/20 text-[#05b34c] font-black px-2 py-0.5 rounded border border-[#06C755]/30 inline-flex items-center space-x-1 transition-all"
+                                      title={`คลิกเพื่อแชทกับแอดมิน ${lineOaId} บน LINE ทันที`}
+                                    >
+                                      <MessageSquare className="h-3 w-3" />
+                                      <span>{cSocial} (LINE {lineOaId})</span>
+                                    </a>
+                                  ) : (
+                                    <span className="bg-natural-sand/15 text-natural-espresso/80 font-bold px-2 py-0.5 rounded border border-natural-wheat/50 inline-flex items-center space-x-1">
+                                      <MessageSquare className="h-3 w-3" />
+                                      <span>{cSocial}</span>
+                                    </span>
+                                  )}
                                 </div>
                                 
                                 <div className="flex flex-wrap items-center gap-3 pt-2">
@@ -1216,15 +1187,17 @@ export default function CustomerPortal({
                                 <Info className="h-3.5 w-3.5 mr-1" /> หากพบจุดคลาดเคลื่อนของสัดส่วน กรุณาติดต่อสตูดิโอเพื่อปรับแต่งโครงสร้างก่อนช่างลงกรรไกรตัดผ้าค่ะ
                               </p>
                               <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto justify-end">
-                                <a 
-                                  href="https://line.me/R/oaMessage/@237aynfq/"
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="bg-[#06C755] hover:bg-[#05b34c] text-white font-semibold px-4 py-2 rounded-lg flex items-center space-x-1.5 transition-all cursor-pointer shadow-xs"
-                                >
-                                  <MessageSquare className="h-3.5 w-3.5" />
-                                  <span>แชท LINE @237aynfq 💬</span>
-                                </a>
+                                {lineOaId && (
+                                  <a 
+                                    href={`https://line.me/R/oaMessage/${lineOaId.replace('@', '')}/`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="bg-[#06C755] hover:bg-[#05b34c] text-white font-semibold px-4 py-2 rounded-lg flex items-center space-x-1.5 transition-all cursor-pointer shadow-xs"
+                                  >
+                                    <MessageSquare className="h-3.5 w-3.5" />
+                                    <span>แชท LINE {lineOaId} 💬</span>
+                                  </a>
+                                )}
                                 <button
                                   type="button"
                                   onClick={() => setPrintingOrder(order)}
@@ -1581,16 +1554,20 @@ export default function CustomerPortal({
                             </span>
                             
                             <div className="flex items-center space-x-2.5">
-                              <a 
-                                href="https://line.me/R/oaMessage/@237aynfq/"
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="text-[#05b34c] hover:text-[#04943f] font-bold flex items-center space-x-1 cursor-pointer"
-                              >
-                                <MessageSquare className="h-3.5 w-3.5" />
-                                <span>คุยผ่าน LINE @237aynfq 💬</span>
-                              </a>
-                              <span className="text-natural-sand">|</span>
+                              {lineOaId && (
+                                <>
+                                  <a 
+                                    href={`https://line.me/R/oaMessage/${lineOaId.replace('@', '')}/`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-[#05b34c] hover:text-[#04943f] font-bold flex items-center space-x-1 cursor-pointer"
+                                  >
+                                    <MessageSquare className="h-3.5 w-3.5" />
+                                    <span>คุยผ่าน LINE {lineOaId} 💬</span>
+                                  </a>
+                                  <span className="text-natural-sand">|</span>
+                                </>
+                              )}
                               <button
                                 type="button"
                                 onClick={() => setPrintingOrder(order)}
@@ -1624,7 +1601,7 @@ export default function CustomerPortal({
                       <span>🛠️ วิธีแก้ไขและผูกข้อมูลใน 1 วินาที:</span>
                     </p>
                     <ol className="list-decimal list-inside space-y-1.5 pl-1 text-[11px] text-natural-espresso/75 leading-relaxed">
-                      <li>กรุณาเปิดหน้าแชท LINE ของคุณที่คุยกับร้าน <strong>@237aynfq</strong></li>
+                      <li>กรุณาเปิดหน้าแชท LINE ของคุณที่คุยกับร้าน <strong>{lineOaId || 'LINE OA ของทางร้าน'}</strong></li>
                       <li>พิมพ์ส่ง <strong>"เบอร์โทรศัพท์มือถือ"</strong> (เช่น 0812345678) หรือ <strong>"เลขที่ออเดอร์"</strong> (เช่น NU-26001) เข้าแชทร้าน</li>
                       <li>ระบบ Webhook จะทำการจับคู่ความปลอดภัยและบันทึกออเดอร์เข้าบัญชี LINE ของคุณโดยอัตโนมัติทันที</li>
                       <li>หลังจากนั้น คุณจะสามารถกดลิงก์นี้เพื่อดูรายละเอียด สัดส่วนวัดตัว และคิวการเย็บแบบฟิกสิทธิ์เฉพาะคุณได้ตลอด 24 ชั่วโมงค่ะ 🟢</li>

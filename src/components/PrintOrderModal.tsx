@@ -47,12 +47,6 @@ export default function PrintOrderModal({ order, isOpen, onClose }: PrintOrderMo
     }
   }
 
-  // หากไม่มีรูปเลย ให้แสดงภาพจำลองสำหรับสเก็ตช์ห้องเสื้อหรูหราของทางร้าน เพื่อให้ใบออเดอร์มีดีไซน์เสมอ
-  if (!displayImage) {
-    displayImage = "https://images.unsplash.com/photo-1512436991641-6745cdb1723f?auto=format&fit=crop&q=80&w=600";
-    imageSourceLabel = "สเก็ตช์ดีไซน์สั่งตัดพิเศษ (Custom Atelier Sketch)";
-  }
-
   const handlePrint = () => {
     window.print();
   };
@@ -68,6 +62,34 @@ export default function PrintOrderModal({ order, isOpen, onClose }: PrintOrderMo
     month: 'long',
     year: 'numeric'
   });
+
+  const measurementFields = [
+    { key: 'chest', label: 'รอบอก', unit: 'ซม.' },
+    { key: 'waist', label: 'รอบเอว', unit: 'ซม.' },
+    { key: 'hips', label: 'สะโพก', unit: 'ซม.' },
+    { key: 'shoulder', label: 'ไหล่กว้าง', unit: 'ซม.' },
+    { key: 'sleeveLength', label: 'ความยาวแขน', unit: 'ซม.' },
+    { key: 'armhole', label: 'รอบวงแขน', unit: 'ซม.' },
+    { key: 'length', label: 'ความยาวชุด', unit: 'ซม.' },
+    { key: 'neck', label: 'รอบคอ', unit: 'ซม.' },
+    { key: 'height', label: 'ส่วนสูง', unit: 'ซม.' },
+    { key: 'weight', label: 'น้ำหนัก', unit: 'กก.' },
+    { key: 'frontChest', label: 'บ่าหน้า', unit: 'ซม.' },
+    { key: 'backChest', label: 'บ่าหลัง', unit: 'ซม.' },
+    { key: 'frontLength', label: 'ยาวหน้า', unit: 'ซม.' },
+    { key: 'backLength', label: 'ยาวหลัง', unit: 'ซม.' },
+    { key: 'wrist', label: 'ข้อมือ', unit: 'ซม.' },
+  ];
+
+  const isValueValid = (val: any) => {
+    if (val === undefined || val === null) return false;
+    const str = String(val).trim();
+    return str !== '' && str !== '-' && str !== '0' && str !== '0.0' && str !== 'none';
+  };
+
+  const activeMeasurements = measurementFields.filter(field => 
+    isValueValid(order.measurements[field.key as keyof typeof order.measurements])
+  );
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto bg-natural-espresso/45 backdrop-blur-sm flex items-center justify-center p-4">
@@ -453,155 +475,106 @@ export default function PrintOrderModal({ order, isOpen, onClose }: PrintOrderMo
                 </div>
 
                 {/* Measurements Section */}
-                <div className="py-5 border-b border-natural-sand">
-                  <div className="flex items-center justify-between mb-3">
-                    <h4 className="font-serif font-bold text-xs text-natural-espresso flex items-center">
-                      <Scissors className="h-3.5 w-3.5 mr-1.5 text-natural-clay" /> ตารางขนาดสัดส่วนการวัดตัว (Tailoring Measurements)
-                    </h4>
-                    {order.measurements.standardSize && (
-                      <span className="text-[9px] bg-natural-clay text-white px-2.5 py-0.5 rounded-full font-bold">
-                        ไซส์มาตรฐาน: {order.measurements.standardSize}
-                      </span>
+                {activeMeasurements.length > 0 && (
+                  <div className="py-4 border-b border-natural-sand">
+                    <div className="flex items-center justify-between mb-2">
+                      <h4 className="font-serif font-bold text-xs text-natural-espresso flex items-center">
+                        <Scissors className="h-3.5 w-3.5 mr-1.5 text-natural-clay" /> ตารางขนาดสัดส่วนการวัดตัว (Tailoring Measurements)
+                      </h4>
+                      {order.measurements.standardSize && (
+                        <span className="text-[9px] bg-natural-clay text-white px-2.5 py-0.5 rounded-full font-bold">
+                          ไซส์มาตรฐาน: {order.measurements.standardSize}
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Grid Measurements */}
+                    <div className="grid grid-cols-3 sm:grid-cols-5 gap-1.5 text-center text-xs mb-3">
+                      {activeMeasurements.map((field) => {
+                        const val = order.measurements[field.key as keyof typeof order.measurements];
+                        return (
+                          <div key={field.key} className="bg-natural-sand/20 p-2 rounded-lg border border-natural-wheat/40 flex flex-col justify-between min-h-[48px]">
+                            <span className="block text-[9px] text-natural-espresso/50 font-bold uppercase">{field.label}</span>
+                            <strong className="text-sm font-mono font-bold text-natural-espresso">{val} {field.unit}</strong>
+                          </div>
+                        );
+                      })}
+                      <div className="bg-natural-sand/20 p-2 rounded-lg border border-natural-wheat/40 flex flex-col justify-center min-h-[48px]">
+                        <span className="block text-[9px] text-natural-espresso/50 font-bold uppercase">สไตล์สัดส่วน</span>
+                        <strong className="text-[10px] font-bold text-natural-clay">
+                          {order.measurements.standardSize ? `Standard ${order.measurements.standardSize}` : 'สั่งตัดส่วนตัว (Custom)'}
+                        </strong>
+                      </div>
+                    </div>
+
+                    {order.measurements.otherNotes && isValueValid(order.measurements.otherNotes) && (
+                      <div className="text-xs bg-natural-sand/20 p-2 rounded-lg border border-natural-wheat/40 leading-relaxed text-natural-espresso/80">
+                        <strong className="text-natural-espresso">📌 รายละเอียดสัดส่วนพิเศษเพิ่มเติม:</strong> {order.measurements.otherNotes}
+                      </div>
                     )}
                   </div>
-
-                  {/* Grid Measurements */}
-                  <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 text-center text-xs mb-4">
-                    <div className="bg-natural-sand/20 p-2 rounded-lg border border-natural-wheat/40">
-                      <span className="block text-[9px] text-natural-espresso/50 font-bold uppercase">รอบอก</span>
-                      <strong className="text-sm font-mono font-bold text-natural-espresso">{order.measurements.chest} ซม.</strong>
-                    </div>
-                    <div className="bg-natural-sand/20 p-2 rounded-lg border border-natural-wheat/40">
-                      <span className="block text-[9px] text-natural-espresso/50 font-bold uppercase">รอบเอว</span>
-                      <strong className="text-sm font-mono font-bold text-natural-espresso">{order.measurements.waist} ซม.</strong>
-                    </div>
-                    <div className="bg-natural-sand/20 p-2 rounded-lg border border-natural-wheat/40">
-                      <span className="block text-[9px] text-natural-espresso/50 font-bold uppercase">สะโพก</span>
-                      <strong className="text-sm font-mono font-bold text-natural-espresso">{order.measurements.hips} ซม.</strong>
-                    </div>
-                    <div className="bg-natural-sand/20 p-2 rounded-lg border border-natural-wheat/40">
-                      <span className="block text-[9px] text-natural-espresso/50 font-bold uppercase">ไหล่กว้าง</span>
-                      <strong className="text-sm font-mono font-bold text-natural-espresso">{order.measurements.shoulder} ซม.</strong>
-                    </div>
-                    <div className="bg-natural-sand/20 p-2 rounded-lg border border-natural-wheat/40">
-                      <span className="block text-[9px] text-natural-espresso/50 font-bold uppercase">ความยาวแขน</span>
-                      <strong className="text-sm font-mono font-bold text-natural-espresso">{order.measurements.sleeveLength} ซม.</strong>
-                    </div>
-                    <div className="bg-natural-sand/20 p-2 rounded-lg border border-natural-wheat/40">
-                      <span className="block text-[9px] text-natural-espresso/50 font-bold uppercase">รอบวงแขน</span>
-                      <strong className="text-sm font-mono font-bold text-natural-espresso">{order.measurements.armhole} ซม.</strong>
-                    </div>
-                    <div className="bg-natural-sand/20 p-2 rounded-lg border border-natural-wheat/40">
-                      <span className="block text-[9px] text-natural-espresso/50 font-bold uppercase">ความยาวชุด</span>
-                      <strong className="text-sm font-mono font-bold text-natural-espresso">{order.measurements.length} ซม.</strong>
-                    </div>
-
-                    <div className="bg-natural-sand/20 p-2 rounded-lg border border-natural-wheat/40">
-                      <span className="block text-[9px] text-natural-espresso/50 font-bold uppercase">ส่วนสูง</span>
-                      <strong className="text-sm font-mono font-bold text-natural-espresso">{order.measurements.height} ซม.</strong>
-                    </div>
-                    <div className="bg-natural-sand/20 p-2 rounded-lg border border-natural-wheat/40">
-                      <span className="block text-[9px] text-natural-espresso/50 font-bold uppercase">น้ำหนัก</span>
-                      <strong className="text-sm font-mono font-bold text-natural-espresso">{order.measurements.weight || '-'} กก.</strong>
-                    </div>
-                    <div className="bg-natural-sand/20 p-2 rounded-lg border border-natural-wheat/40">
-                      <span className="block text-[9px] text-natural-espresso/50 font-bold uppercase">บ่าหน้า</span>
-                      <strong className="text-sm font-mono font-bold text-natural-espresso">{order.measurements.frontChest || '-'} ซม.</strong>
-                    </div>
-                    <div className="bg-natural-sand/20 p-2 rounded-lg border border-natural-wheat/40">
-                      <span className="block text-[9px] text-natural-espresso/50 font-bold uppercase">บ่าหลัง</span>
-                      <strong className="text-sm font-mono font-bold text-natural-espresso">{order.measurements.backChest || '-'} ซม.</strong>
-                    </div>
-                    <div className="bg-natural-sand/20 p-2 rounded-lg border border-natural-wheat/40">
-                      <span className="block text-[9px] text-natural-espresso/50 font-bold uppercase">ยาวหน้า</span>
-                      <strong className="text-sm font-mono font-bold text-natural-espresso">{order.measurements.frontLength || '-'} ซม.</strong>
-                    </div>
-                    <div className="bg-natural-sand/20 p-2 rounded-lg border border-natural-wheat/40">
-                      <span className="block text-[9px] text-natural-espresso/50 font-bold uppercase">ยาวหลัง</span>
-                      <strong className="text-sm font-mono font-bold text-natural-espresso">{order.measurements.backLength || '-'} ซม.</strong>
-                    </div>
-                    <div className="bg-natural-sand/20 p-2 rounded-lg border border-natural-wheat/40">
-                      <span className="block text-[9px] text-natural-espresso/50 font-bold uppercase">ข้อมือ</span>
-                      <strong className="text-sm font-mono font-bold text-natural-espresso">{order.measurements.wrist || '-'} ซม.</strong>
-                    </div>
-                    <div className="bg-natural-sand/20 p-2 rounded-lg border border-natural-wheat/40 flex flex-col justify-center">
-                      <span className="block text-[9px] text-natural-espresso/50 font-bold uppercase">สไตล์สัดส่วน</span>
-                      <strong className="text-[10px] font-bold text-natural-clay">
-                        {order.measurements.standardSize ? `Standard ${order.measurements.standardSize}` : 'สั่งตัดส่วนตัว (Custom)'}
-                      </strong>
-                    </div>
-                  </div>
-
-                  {order.measurements.otherNotes && (
-                    <div className="text-xs bg-natural-sand/20 p-2.5 rounded-lg border border-natural-wheat/40 leading-relaxed text-natural-espresso/80">
-                      <strong className="text-natural-espresso">📌 รายละเอียดสัดส่วนพิเศษเพิ่มเติม:</strong> {order.measurements.otherNotes}
-                    </div>
-                  )}
-                </div>
+                )}
 
                 {/* Design & Sketches Reference Section */}
-                <div className="py-5 border-b border-natural-sand text-xs">
-                  <h4 className="font-serif font-bold text-xs text-natural-espresso flex items-center mb-3">
-                    <Sparkles className="h-3.5 w-3.5 mr-1.5 text-natural-ochre" /> รายละเอียดดีไซน์และรูปภาพประกอบ (Design & Reference Illustration)
-                  </h4>
-                  
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-2.5 flex flex-col justify-between">
-                      <div className="space-y-2.5">
-                        {order.customDesign && (
-                          <div className="bg-natural-sand/20 p-3 rounded-lg border border-natural-wheat/30 space-y-1 text-xs">
-                            <p className="font-bold text-natural-espresso border-b border-natural-sand/55 pb-1">📐 สไตล์ทรงสถาปัตย์ชุด</p>
-                            <p><span className="text-natural-espresso/60">ทรงชุด (Silhouette):</span> <strong className="font-bold">{order.customDesign.silhouette}</strong></p>
-                            <p><span className="text-natural-espresso/60">ดีไซน์คอ (Neckline):</span> <strong className="font-bold">{order.customDesign.neckline}</strong></p>
-                            <p><span className="text-natural-espresso/60">ดีไซน์แขน (Sleeves):</span> <strong className="font-bold">{order.customDesign.sleeves}</strong></p>
+                {(order.customDesign || (order.notes && isValueValid(order.notes)) || displayImage || displayImage2) && (
+                  <div className="py-4 border-b border-natural-sand text-xs">
+                    <h4 className="font-serif font-bold text-xs text-natural-espresso flex items-center mb-2">
+                      <Sparkles className="h-3.5 w-3.5 mr-1.5 text-natural-ochre" /> รายละเอียดดีไซน์และรูปภาพประกอบ (Design & Reference Illustration)
+                    </h4>
+                    
+                    <div className={`grid ${displayImage || displayImage2 ? 'grid-cols-1 md:grid-cols-2' : 'grid-cols-1'} gap-4`}>
+                      {(order.customDesign || (order.notes && isValueValid(order.notes))) && (
+                        <div className="space-y-2 flex flex-col justify-between">
+                          <div className="space-y-2">
+                            {order.customDesign && (
+                              <div className="bg-natural-sand/20 p-2.5 rounded-lg border border-natural-wheat/30 space-y-1 text-xs">
+                                <p className="font-bold text-natural-espresso border-b border-natural-sand/55 pb-1">📐 สไตล์ทรงสถาปัตย์ชุด</p>
+                                <p><span className="text-natural-espresso/60">ทรงชุด (Silhouette):</span> <strong className="font-bold">{order.customDesign.silhouette}</strong></p>
+                                <p><span className="text-natural-espresso/60">ดีไซน์คอ (Neckline):</span> <strong className="font-bold">{order.customDesign.neckline}</strong></p>
+                                <p><span className="text-natural-espresso/60">ดีไซน์แขน (Sleeves):</span> <strong className="font-bold">{order.customDesign.sleeves}</strong></p>
+                              </div>
+                            )}
+                            {order.notes && isValueValid(order.notes) && (
+                              <div className="p-2.5 bg-natural-cream/40 border border-natural-sand rounded-lg italic text-natural-espresso/75 leading-relaxed">
+                                " {order.notes} "
+                              </div>
+                            )}
                           </div>
-                        )}
-                        {order.notes ? (
-                          <div className="p-3 bg-natural-cream/40 border border-natural-sand rounded-lg italic text-natural-espresso/75 leading-relaxed">
-                            " {order.notes} "
-                          </div>
-                        ) : (
-                          <div className="p-3 bg-natural-cream/25 border border-dashed border-natural-wheat rounded-lg text-natural-espresso/50 leading-relaxed text-center">
-                            ไม่มีหมายเหตุดีไซน์เพิ่มเติม
-                          </div>
-                        )}
-                      </div>
-                      <div className="text-[10px] text-natural-espresso/40 italic hidden md:block">
-                        * รูปภาพด้านขวาใช้เป็นภาพอ้างอิงดีไซน์หลักสำหรับช่างแพทเทิร์นและช่างเย็บประกอบชุด
-                      </div>
-                    </div>
-
-                    {(displayImage || displayImage2) && (
-                      <div className="space-y-1.5 flex flex-col justify-center">
-                        <p className="text-[10px] text-natural-espresso/45 font-bold uppercase tracking-wider flex items-center justify-between">
-                          <span>🖼 {imageSourceLabel}</span>
-                        </p>
-                        <div className={`grid ${displayImage && displayImage2 ? 'grid-cols-2' : 'grid-cols-1'} gap-1.5`}>
-                          {displayImage && (
-                            <div className="border border-natural-wheat rounded-xl p-1 bg-natural-sand/10 flex items-center justify-center max-h-48 overflow-hidden print:max-h-44">
-                              <img 
-                                src={displayImage} 
-                                alt="Design Reference for print 1" 
-                                className="max-h-44 object-contain rounded-lg print:max-h-36 mx-auto"
-                                referrerPolicy="no-referrer"
-                              />
-                            </div>
-                          )}
-                          {displayImage2 && (
-                            <div className="border border-natural-wheat rounded-xl p-1 bg-natural-sand/10 flex items-center justify-center max-h-48 overflow-hidden print:max-h-44">
-                              <img 
-                                src={displayImage2} 
-                                alt="Design Reference for print 2" 
-                                className="max-h-44 object-contain rounded-lg print:max-h-36 mx-auto"
-                                referrerPolicy="no-referrer"
-                              />
-                            </div>
-                          )}
                         </div>
-                      </div>
-                    )}
+                      )}
+
+                      {(displayImage || displayImage2) && (
+                        <div className="space-y-1.5 flex flex-col justify-center">
+                          <p className="text-[10px] text-natural-espresso/45 font-bold uppercase tracking-wider">
+                            <span>🖼 {imageSourceLabel}</span>
+                          </p>
+                          <div className={`grid ${displayImage && displayImage2 ? 'grid-cols-2' : 'grid-cols-1'} gap-1.5`}>
+                            {displayImage && (
+                              <div className="border border-natural-wheat rounded-xl p-1 bg-natural-sand/10 flex items-center justify-center max-h-40 overflow-hidden print:max-h-36">
+                                <img 
+                                  src={displayImage} 
+                                  alt="Design Reference for print 1" 
+                                  className="max-h-36 object-contain rounded-lg print:max-h-32 mx-auto"
+                                  referrerPolicy="no-referrer"
+                                />
+                              </div>
+                            )}
+                            {displayImage2 && (
+                              <div className="border border-natural-wheat rounded-xl p-1 bg-natural-sand/10 flex items-center justify-center max-h-40 overflow-hidden print:max-h-36">
+                                <img 
+                                  src={displayImage2} 
+                                  alt="Design Reference for print 2" 
+                                  className="max-h-36 object-contain rounded-lg print:max-h-32 mx-auto"
+                                  referrerPolicy="no-referrer"
+                                />
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </div>
                   </div>
-                </div>
+                )}
 
                 {/* Financial Summary Box */}
                 <div className="py-5 border-b border-natural-sand flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
@@ -643,55 +616,34 @@ export default function PrintOrderModal({ order, isOpen, onClose }: PrintOrderMo
 
                 {/* Customer Body Photos Section (For tailors) */}
                 {(order.customerPhotoFront || order.customerPhotoSide || order.customerPhotoBack) && (
-                  <div className="py-5 border-b border-natural-sand text-xs customer-photos-section">
-                    <h4 className="font-serif font-bold text-xs text-natural-espresso flex items-center mb-3">
+                  <div className="py-4 border-b border-natural-sand text-xs customer-photos-section">
+                    <h4 className="font-serif font-bold text-xs text-natural-espresso flex items-center mb-2">
                       📸 ภาพถ่ายสัดส่วนสรีระลูกค้า (Customer Body Proportions)
                     </h4>
-                    <div className="grid grid-cols-3 gap-3">
-                      {order.customerPhotoFront ? (
+                    <div className="flex flex-wrap gap-4 justify-start">
+                      {order.customerPhotoFront && (
                         <div className="text-center space-y-1">
                           <p className="text-[10px] text-natural-espresso/60 font-bold">ด้านหน้า (Front)</p>
-                          <div className="border border-natural-wheat rounded-lg p-1 bg-natural-sand/5 flex items-center justify-center max-h-36 overflow-hidden">
-                            <img src={order.customerPhotoFront} alt="Front View" className="max-h-32 object-contain rounded" referrerPolicy="no-referrer" />
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="text-center space-y-1">
-                          <p className="text-[10px] text-natural-espresso/60 font-bold">ด้านหน้า (Front)</p>
-                          <div className="border border-dashed border-natural-sand rounded-lg h-32 flex items-center justify-center text-natural-espresso/30 italic text-[10px]">
-                            ไม่มีภาพถ่าย
+                          <div className="border border-natural-wheat rounded-lg p-1 bg-natural-sand/5 flex items-center justify-center max-h-28 overflow-hidden">
+                            <img src={order.customerPhotoFront} alt="Front View" className="max-h-24 object-contain rounded" referrerPolicy="no-referrer" />
                           </div>
                         </div>
                       )}
 
-                      {order.customerPhotoSide ? (
+                      {order.customerPhotoSide && (
                         <div className="text-center space-y-1">
                           <p className="text-[10px] text-natural-espresso/60 font-bold">ด้านข้าง (Side)</p>
-                          <div className="border border-natural-wheat rounded-lg p-1 bg-natural-sand/5 flex items-center justify-center max-h-36 overflow-hidden">
-                            <img src={order.customerPhotoSide} alt="Side View" className="max-h-32 object-contain rounded" referrerPolicy="no-referrer" />
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="text-center space-y-1">
-                          <p className="text-[10px] text-natural-espresso/60 font-bold">ด้านข้าง (Side)</p>
-                          <div className="border border-dashed border-natural-sand rounded-lg h-32 flex items-center justify-center text-natural-espresso/30 italic text-[10px]">
-                            ไม่มีภาพถ่าย
+                          <div className="border border-natural-wheat rounded-lg p-1 bg-natural-sand/5 flex items-center justify-center max-h-28 overflow-hidden">
+                            <img src={order.customerPhotoSide} alt="Side View" className="max-h-24 object-contain rounded" referrerPolicy="no-referrer" />
                           </div>
                         </div>
                       )}
 
-                      {order.customerPhotoBack ? (
+                      {order.customerPhotoBack && (
                         <div className="text-center space-y-1">
                           <p className="text-[10px] text-natural-espresso/60 font-bold">ด้านหลัง (Back)</p>
-                          <div className="border border-natural-wheat rounded-lg p-1 bg-natural-sand/5 flex items-center justify-center max-h-36 overflow-hidden">
-                            <img src={order.customerPhotoBack} alt="Back View" className="max-h-32 object-contain rounded" referrerPolicy="no-referrer" />
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="text-center space-y-1">
-                          <p className="text-[10px] text-natural-espresso/60 font-bold">ด้านหลัง (Back)</p>
-                          <div className="border border-dashed border-natural-sand rounded-lg h-32 flex items-center justify-center text-natural-espresso/30 italic text-[10px]">
-                            ไม่มีภาพถ่าย
+                          <div className="border border-natural-wheat rounded-lg p-1 bg-natural-sand/5 flex items-center justify-center max-h-28 overflow-hidden">
+                            <img src={order.customerPhotoBack} alt="Back View" className="max-h-24 object-contain rounded" referrerPolicy="no-referrer" />
                           </div>
                         </div>
                       )}
