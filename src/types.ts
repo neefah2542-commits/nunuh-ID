@@ -74,6 +74,7 @@ export interface Order {
   feedbacks?: FeedbackMessage[]; // ข้อความตอบกลับ/แจ้งเตือนจากลูกค้าหรือร้านค้า
   isMatchingSet?: boolean;     // ระบุว่าเป็นงานเข้าชุด
   idhNumber?: string;          // เลข IDH สำหรับงานเข้าชุด (เช่น IDH-88)
+  updatedAt?: number;          // วันที่อัปเดตล่าสุดเป็นมิลลิวินาที สำหรับใช้ซิงค์ระบบพนักงาน
 }
 
 export interface FeedbackMessage {

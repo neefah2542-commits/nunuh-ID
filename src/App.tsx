@@ -29,7 +29,9 @@ import {
   Store,
   Layers,
   Star,
-  Users
+  Users,
+  Settings,
+  Phone
 } from 'lucide-react';
 
 export default function App() {
@@ -44,9 +46,34 @@ export default function App() {
     return localStorage.getItem('nunuh_selected_theme') || 'pink';
   });
 
+  const [isSettingsOpen, setIsSettingsOpen] = useState<boolean>(false);
+  const [boutiquePhone, setBoutiquePhone] = useState<string>(() => {
+    return localStorage.getItem('nunuh_boutique_phone') || '086-555-1234';
+  });
+
+  const handleUpdateBoutiquePhone = async (newPhone: string) => {
+    setBoutiquePhone(newPhone);
+    localStorage.setItem('nunuh_boutique_phone', newPhone);
+    try {
+      await fetch('/api/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ boutiquePhone: newPhone })
+      });
+    } catch (e) {
+      console.warn('Failed to sync boutique phone with server:', e);
+    }
+  };
+
   // Save selected theme to localStorage when changed
   useEffect(() => {
     localStorage.setItem('nunuh_selected_theme', theme);
+    // Sync to server
+    fetch('/api/settings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ theme })
+    }).catch(() => {});
   }, [theme]);
 
   // ฟังก์ชันผสานข้อมูลออเดอร์โดยไม่ให้ข้อมูลทับกันหรือสูญหาย (Smart Order Merge)
@@ -70,7 +97,11 @@ export default function App() {
         map.set(o.id, o);
       } else {
         const existing = map.get(o.id)!;
-        map.set(o.id, { ...existing, ...o });
+        const existingTime = existing.updatedAt || 0;
+        const incomingTime = o.updatedAt || 0;
+        if (incomingTime >= existingTime) {
+          map.set(o.id, { ...existing, ...o });
+        }
       }
     }
     // เรียงลำดับตามวันที่สร้างหรือเลขที่ออเดอร์ล่าสุดให้อยู่ด้านบน
@@ -108,6 +139,107 @@ export default function App() {
       }
     } catch (e) {
       console.warn('Backend sync is temporarily unavailable, running in local-only mode:', e);
+    }
+  };
+
+  const syncAllDataWithServer = async () => {
+    // 1. Sync orders
+    await syncWithServer();
+
+    // 2. Sync catalogue
+    try {
+      const res = await fetch('/api/catalogue');
+      if (res.ok) {
+        const serverCat = await res.json();
+        if (Array.isArray(serverCat) && serverCat.length > 0) {
+          setCatalogue(serverCat);
+          localStorage.setItem('nunuh_catalogue', JSON.stringify(serverCat));
+        } else {
+          // If server is empty, upload local catalogue
+          const localCat = localStorage.getItem('nunuh_catalogue');
+          if (localCat) {
+            await fetch('/api/catalogue', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: localCat
+            });
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('Failed to sync catalogue:', e);
+    }
+
+    // 3. Sync settings
+    try {
+      const res = await fetch('/api/settings');
+      if (res.ok) {
+        const serverSettings = await res.json();
+        if (serverSettings && typeof serverSettings === 'object' && Object.keys(serverSettings).length > 0) {
+          if (serverSettings.boutiquePhone) {
+            setBoutiquePhone(serverSettings.boutiquePhone);
+            localStorage.setItem('nunuh_boutique_phone', serverSettings.boutiquePhone);
+          }
+          if (serverSettings.theme) {
+            setTheme(serverSettings.theme);
+            localStorage.setItem('nunuh_selected_theme', serverSettings.theme);
+          }
+          if (serverSettings.lineOaId) {
+            localStorage.setItem('nunuh_line_oa_id', serverSettings.lineOaId);
+          }
+          if (serverSettings.lineOaChatUrl) {
+            localStorage.setItem('nunuh_line_oa_chat_url', serverSettings.lineOaChatUrl);
+          }
+          if (serverSettings.publicUrl) {
+            localStorage.setItem('nunuh_public_url', serverSettings.publicUrl);
+          }
+        } else {
+          // If server is empty, upload local settings
+          const localPhone = localStorage.getItem('nunuh_boutique_phone') || '086-555-1234';
+          const localTheme = localStorage.getItem('nunuh_selected_theme') || 'pink';
+          const localLineOaId = localStorage.getItem('nunuh_line_oa_id') || '@237aynfq';
+          const localLineOaChatUrl = localStorage.getItem('nunuh_line_oa_chat_url') || 'https://chat.line.biz/';
+          const localPublicUrl = localStorage.getItem('nunuh_public_url') || window.location.origin;
+
+          await fetch('/api/settings', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              boutiquePhone: localPhone,
+              theme: localTheme,
+              lineOaId: localLineOaId,
+              lineOaChatUrl: localLineOaChatUrl,
+              publicUrl: localPublicUrl
+            })
+          });
+        }
+      }
+    } catch (e) {
+      console.warn('Failed to sync settings:', e);
+    }
+
+    // 4. Sync reviews
+    try {
+      const res = await fetch('/api/reviews');
+      if (res.ok) {
+        const serverReviews = await res.json();
+        if (Array.isArray(serverReviews) && serverReviews.length > 0) {
+          setReviews(serverReviews);
+          localStorage.setItem('nunuh_reviews', JSON.stringify(serverReviews));
+        } else {
+          // If server is empty, upload local reviews
+          const localRev = localStorage.getItem('nunuh_reviews');
+          if (localRev) {
+            await fetch('/api/reviews', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: localRev
+            });
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('Failed to sync reviews:', e);
     }
   };
 
@@ -218,7 +350,7 @@ export default function App() {
     }
 
     // เริ่มต้นซิงค์ข้อมูลกับ Backend ทันทีตอนหน้าเว็บโหลด
-    syncWithServer();
+    syncAllDataWithServer();
   }, []);
 
   // ซิงค์สตรีมข้อมูลเรียลไทม์ข้ามแท็บและหลายผู้ใช้งานที่ใช้ลิงก์เดียวกัน (BroadcastChannel + Storage Event + Polling)
@@ -275,7 +407,7 @@ export default function App() {
 
     // ตรวจสอบข้อมูลจาก Server ทุกๆ 8 วินาที เพื่อความเรียลไทม์ข้ามเครื่อง
     const serverPollInterval = setInterval(() => {
-      syncWithServer();
+      syncAllDataWithServer();
     }, 8000);
 
     return () => {
@@ -325,7 +457,8 @@ export default function App() {
 
   // การเพิ่มออเดอร์ใหม่
   const handleAddOrder = (newOrder: Order) => {
-    const updated = [newOrder, ...orders];
+    const orderWithTime = { ...newOrder, updatedAt: Date.now() };
+    const updated = [orderWithTime, ...orders];
     saveOrdersToStorage(updated);
     // หลังบันทึกย้ายแท็บไปหน้าติดตามงาน (หากเป็นพนักงานให้คงอยู่ที่เดิมเพื่อความปลอดภัย)
     if (isStaffMode) {
@@ -340,7 +473,7 @@ export default function App() {
   const handleUpdateOrderStatus = (orderId: string, nextStatus: OrderStatus) => {
     const updated = orders.map(o => {
       if (o.id === orderId) {
-        return { ...o, status: nextStatus };
+        return { ...o, status: nextStatus, updatedAt: Date.now() };
       }
       return o;
     });
@@ -376,7 +509,8 @@ export default function App() {
 
   // แก้ไขรายละเอียดออเดอร์ทั้งหมด
   const handleUpdateOrder = (updatedOrder: Order) => {
-    const updated = orders.map(o => o.id === updatedOrder.id ? updatedOrder : o);
+    const orderWithTime = { ...updatedOrder, updatedAt: Date.now() };
+    const updated = orders.map(o => o.id === updatedOrder.id ? orderWithTime : o);
     saveOrdersToStorage(updated);
   };
 
@@ -396,36 +530,97 @@ export default function App() {
   };
 
   // การอัปโหลด / เพิ่มแบบชุดใหม่เข้าไปยังแคตตาล็อกของทางร้าน
-  const handleAddCatalogueItem = (newItem: CatalogueItem) => {
+  const handleAddCatalogueItem = async (newItem: CatalogueItem) => {
     const updated = [...catalogue, newItem];
     setCatalogue(updated);
     localStorage.setItem('nunuh_catalogue', JSON.stringify(updated));
+    try {
+      await fetch('/api/catalogue', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updated)
+      });
+    } catch (e) {
+      console.warn('Failed to upload new catalogue item to server:', e);
+    }
   };
 
   // การลบแบบชุดออกจากแคตตาล็อก
-  const handleDeleteCatalogueItem = (designId: string) => {
+  const handleDeleteCatalogueItem = async (designId: string) => {
     const updated = catalogue.filter(item => item.id !== designId);
     setCatalogue(updated);
     localStorage.setItem('nunuh_catalogue', JSON.stringify(updated));
+    try {
+      await fetch('/api/catalogue', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updated)
+      });
+    } catch (e) {
+      console.warn('Failed to delete catalogue item from server:', e);
+    }
+  };
+
+  // การแก้ไขรายละเอียดแบบชุดในแคตตาล็อก
+  const handleUpdateCatalogueItem = async (updatedItem: CatalogueItem) => {
+    const updated = catalogue.map(item => item.id === updatedItem.id ? updatedItem : item);
+    setCatalogue(updated);
+    localStorage.setItem('nunuh_catalogue', JSON.stringify(updated));
+    try {
+      await fetch('/api/catalogue', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updated)
+      });
+    } catch (e) {
+      console.warn('Failed to update catalogue item on server:', e);
+    }
   };
 
   // จัดการรีวิวและความพึงพอใจของลูกค้า (Customer Reviews & Feedback Handlers)
-  const handleAddReview = (newReview: CustomerReview) => {
+  const handleAddReview = async (newReview: CustomerReview) => {
     const updated = [newReview, ...reviews];
     setReviews(updated);
     localStorage.setItem('nunuh_reviews', JSON.stringify(updated));
+    try {
+      await fetch('/api/reviews', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updated)
+      });
+    } catch (e) {
+      console.warn('Failed to save new review to server:', e);
+    }
   };
 
-  const handleUpdateReview = (updatedReview: CustomerReview) => {
+  const handleUpdateReview = async (updatedReview: CustomerReview) => {
     const updated = reviews.map(r => r.id === updatedReview.id ? updatedReview : r);
     setReviews(updated);
     localStorage.setItem('nunuh_reviews', JSON.stringify(updated));
+    try {
+      await fetch('/api/reviews', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updated)
+      });
+    } catch (e) {
+      console.warn('Failed to update review on server:', e);
+    }
   };
 
-  const handleDeleteReview = (id: string) => {
+  const handleDeleteReview = async (id: string) => {
     const updated = reviews.filter(r => r.id !== id);
     setReviews(updated);
     localStorage.setItem('nunuh_reviews', JSON.stringify(updated));
+    try {
+      await fetch('/api/reviews', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updated)
+      });
+    } catch (e) {
+      console.warn('Failed to delete review from server:', e);
+    }
   };
 
   // คำนวณรหัสออเดอร์ถัดไปแบบอัตโนมัติ (เช่น NU-26007)
@@ -555,72 +750,86 @@ export default function App() {
             )}
 
             {/* Elegant Theme Switcher */}
-            <div className="flex items-center space-x-2 no-print">
-              <span className="text-[10px] uppercase tracking-widest text-natural-espresso/40 font-bold hidden md:inline-block">
-                ธีมร้าน:
-              </span>
-              <div className="flex items-center space-x-1 bg-natural-sand/50 p-1 rounded-xl border border-natural-wheat/40">
-                <button
-                  type="button"
-                  onClick={() => setTheme('sand')}
-                  className={`w-6 h-6 rounded-lg transition-all cursor-pointer relative flex items-center justify-center bg-[#FAF6F0] border ${
-                    theme === 'sand'
-                      ? 'border-natural-clay ring-2 ring-natural-clay/20 shadow-xs scale-105'
-                      : 'border-natural-wheat/40 hover:border-natural-clay/30'
-                  }`}
-                  title="ธีมสีอบอุ่นลินิน (Atelier Sand - Default)"
-                >
-                  <span className="w-2.5 h-2.5 rounded-full bg-[#B96248]" />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setTheme('lavender')}
-                  className={`w-6 h-6 rounded-lg transition-all cursor-pointer relative flex items-center justify-center bg-[#F9F5FB] border ${
-                    theme === 'lavender'
-                      ? 'border-natural-clay ring-2 ring-natural-clay/20 shadow-xs scale-105'
-                      : 'border-natural-wheat/40 hover:border-natural-clay/30'
-                  }`}
-                  title="ธีมสีม่วงราชสำนัก (Royal Lavender)"
-                >
-                  <span className="w-2.5 h-2.5 rounded-full bg-[#7A5299]" />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setTheme('sage')}
-                  className={`w-6 h-6 rounded-lg transition-all cursor-pointer relative flex items-center justify-center bg-[#F5F8F6] border ${
-                    theme === 'sage'
-                      ? 'border-natural-clay ring-2 ring-natural-clay/20 shadow-xs scale-105'
-                      : 'border-natural-wheat/40 hover:border-natural-clay/30'
-                  }`}
-                  title="ธีมสีเขียวใบเซจ (Botanical Sage)"
-                >
-                  <span className="w-2.5 h-2.5 rounded-full bg-[#3B7A57]" />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setTheme('crimson')}
-                  className={`w-6 h-6 rounded-lg transition-all cursor-pointer relative flex items-center justify-center bg-[#FAF5F5] border ${
-                    theme === 'crimson'
-                      ? 'border-natural-clay ring-2 ring-natural-clay/20 shadow-xs scale-105'
-                      : 'border-natural-wheat/40 hover:border-natural-clay/30'
-                  }`}
-                  title="ธีมสีแดงกำมะหยี่หรู (Crimson Velvet)"
-                >
-                  <span className="w-2.5 h-2.5 rounded-full bg-[#9E2A2B]" />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setTheme('pink')}
-                  className={`w-6 h-6 rounded-lg transition-all cursor-pointer relative flex items-center justify-center bg-[#FFF5F8] border ${
-                    theme === 'pink'
-                      ? 'border-natural-clay ring-2 ring-natural-clay/20 shadow-xs scale-105'
-                      : 'border-natural-wheat/40 hover:border-natural-clay/30'
-                  }`}
-                  title="ธีมสีชมพูบานเย็น (Fuchsia Royale)"
-                >
-                  <span className="w-2.5 h-2.5 rounded-full bg-[#D91A5F]" />
-                </button>
+            <div className="flex items-center space-x-3 no-print">
+              <div className="flex items-center space-x-2">
+                <span className="text-[10px] uppercase tracking-widest text-natural-espresso/40 font-bold hidden md:inline-block">
+                  ธีมร้าน:
+                </span>
+                <div className="flex items-center space-x-1 bg-natural-sand/50 p-1 rounded-xl border border-natural-wheat/40">
+                  <button
+                    type="button"
+                    onClick={() => setTheme('sand')}
+                    className={`w-6 h-6 rounded-lg transition-all cursor-pointer relative flex items-center justify-center bg-[#FAF6F0] border ${
+                      theme === 'sand'
+                        ? 'border-natural-clay ring-2 ring-natural-clay/20 shadow-xs scale-105'
+                        : 'border-natural-wheat/40 hover:border-natural-clay/30'
+                    }`}
+                    title="ธีมสีอบอุ่นลินิน (Atelier Sand - Default)"
+                  >
+                    <span className="w-2.5 h-2.5 rounded-full bg-[#B96248]" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setTheme('lavender')}
+                    className={`w-6 h-6 rounded-lg transition-all cursor-pointer relative flex items-center justify-center bg-[#F9F5FB] border ${
+                      theme === 'lavender'
+                        ? 'border-natural-clay ring-2 ring-natural-clay/20 shadow-xs scale-105'
+                        : 'border-natural-wheat/40 hover:border-natural-clay/30'
+                    }`}
+                    title="ธีมสีม่วงราชสำนัก (Royal Lavender)"
+                  >
+                    <span className="w-2.5 h-2.5 rounded-full bg-[#7A5299]" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setTheme('sage')}
+                    className={`w-6 h-6 rounded-lg transition-all cursor-pointer relative flex items-center justify-center bg-[#F5F8F6] border ${
+                      theme === 'sage'
+                        ? 'border-natural-clay ring-2 ring-natural-clay/20 shadow-xs scale-105'
+                        : 'border-natural-wheat/40 hover:border-natural-clay/30'
+                    }`}
+                    title="ธีมสีเขียวใบเซจ (Botanical Sage)"
+                  >
+                    <span className="w-2.5 h-2.5 rounded-full bg-[#3B7A57]" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setTheme('crimson')}
+                    className={`w-6 h-6 rounded-lg transition-all cursor-pointer relative flex items-center justify-center bg-[#FAF5F5] border ${
+                      theme === 'crimson'
+                        ? 'border-natural-clay ring-2 ring-natural-clay/20 shadow-xs scale-105'
+                        : 'border-natural-wheat/40 hover:border-natural-clay/30'
+                    }`}
+                    title="ธีมสีแดงกำมะหยี่หรู (Crimson Velvet)"
+                  >
+                    <span className="w-2.5 h-2.5 rounded-full bg-[#9E2A2B]" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setTheme('pink')}
+                    className={`w-6 h-6 rounded-lg transition-all cursor-pointer relative flex items-center justify-center bg-[#FFF5F8] border ${
+                      theme === 'pink'
+                        ? 'border-natural-clay ring-2 ring-natural-clay/20 shadow-xs scale-105'
+                        : 'border-natural-wheat/40 hover:border-natural-clay/30'
+                    }`}
+                    title="ธีมสีชมพูบานเย็น (Fuchsia Royale)"
+                  >
+                    <span className="w-2.5 h-2.5 rounded-full bg-[#D91A5F]" />
+                  </button>
+                </div>
               </div>
+
+              {!isCustomerMode && !isStaffMode && (
+                <button
+                  type="button"
+                  onClick={() => setIsSettingsOpen(true)}
+                  className="flex items-center space-x-1 px-3 py-1.5 rounded-xl text-xs font-bold bg-white hover:bg-natural-sand/30 text-natural-espresso border border-natural-wheat/80 transition-all cursor-pointer shadow-3xs hover:scale-102"
+                  title="ตั้งค่าข้อมูลห้องเสื้อ"
+                >
+                  <Settings className="h-3.5 w-3.5 text-natural-clay" />
+                  <span className="hidden md:inline">ตั้งค่าร้าน</span>
+                </button>
+              )}
             </div>
 
           </div>
@@ -755,6 +964,7 @@ export default function App() {
                     onSelectDesignForOrder={handleSelectDesignForOrder}
                     onAddCatalogueItem={handleAddCatalogueItem}
                     onDeleteCatalogueItem={handleDeleteCatalogueItem}
+                    onUpdateCatalogueItem={handleUpdateCatalogueItem}
                     isReadOnly={isStaffMode}
                   />
                 </div>
@@ -800,6 +1010,98 @@ export default function App() {
         </div>
 
       </main>
+
+      {/* SETTINGS MODAL */}
+      <AnimatePresence>
+        {isSettingsOpen && (
+          <div className="fixed inset-0 z-50 overflow-y-auto" id="settings-modal">
+            <div className="flex min-h-screen items-center justify-center p-4 text-center">
+              {/* Overlay */}
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.2 }}
+                onClick={() => setIsSettingsOpen(false)}
+                className="fixed inset-0 bg-natural-espresso/35 backdrop-blur-xs transition-opacity"
+              />
+
+              {/* Modal Box */}
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95, y: 10 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.95, y: 10 }}
+                transition={{ duration: 0.2, ease: "easeOut" }}
+                className="relative transform overflow-hidden rounded-3xl bg-white p-6 text-left shadow-xl transition-all sm:my-8 sm:w-full sm:max-w-md border border-natural-wheat z-50"
+              >
+                {/* Header */}
+                <div className="flex items-center justify-between border-b border-natural-wheat pb-4 mb-5">
+                  <div className="flex items-center space-x-2">
+                    <div className="h-8 w-8 rounded-lg bg-natural-sand/50 flex items-center justify-center text-natural-clay">
+                      <Settings className="h-4 w-4" />
+                    </div>
+                    <h3 className="text-lg font-serif font-bold text-natural-espresso">
+                      ตั้งค่าข้อมูลติดต่อห้องเสื้อ
+                    </h3>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setIsSettingsOpen(false)}
+                    className="rounded-lg p-1 text-natural-espresso/40 hover:bg-natural-sand/30 hover:text-natural-espresso transition-all cursor-pointer"
+                  >
+                    <span className="sr-only">ปิด</span>
+                    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth="2.5" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+
+                {/* Body */}
+                <form onSubmit={(e) => {
+                  e.preventDefault();
+                  setIsSettingsOpen(false);
+                }} className="space-y-4">
+                  <div>
+                    <label className="block text-xs font-bold text-natural-espresso/70 mb-1.5 flex items-center space-x-1">
+                      <Phone className="h-3 w-3 text-natural-clay" />
+                      <span>เบอร์โทรศัพท์ห้องเสื้อ (Atelier Phone Number)</span>
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={boutiquePhone}
+                      onChange={(e) => handleUpdateBoutiquePhone(e.target.value)}
+                      placeholder="เช่น 086-555-1234"
+                      className="w-full text-sm px-3 py-2.5 rounded-xl border border-natural-wheat focus:outline-none focus:ring-2 focus:ring-natural-clay/20 focus:border-natural-clay bg-white text-natural-espresso font-semibold"
+                    />
+                    <p className="text-[10px] text-natural-espresso/45 mt-1 leading-relaxed">
+                      * เบอร์โทรศัพท์นี้จะถูกนำไปใช้อัปเดตข้อมูลการติดต่อในใบเสร็จรับเงิน, เอกสารพิมพ์ใบออเดอร์ และปุ่มสำหรับลูกค้าเพื่อ "โทรติดต่อห้องเสื้อ" อัตโนมัติ
+                    </p>
+                  </div>
+
+                  <div className="pt-3 border-t border-natural-wheat/50 flex justify-end space-x-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        handleUpdateBoutiquePhone('086-555-1234');
+                      }}
+                      className="px-3 py-2 text-xs font-bold text-natural-espresso/60 hover:text-natural-espresso hover:bg-natural-sand/30 rounded-xl transition-all cursor-pointer"
+                    >
+                      คืนค่าเริ่มต้น
+                    </button>
+                    <button
+                      type="submit"
+                      className="px-5 py-2 text-xs font-bold text-white bg-natural-clay hover:bg-natural-clay-dark rounded-xl transition-all cursor-pointer shadow-xs"
+                    >
+                      บันทึกตั้งค่า
+                    </button>
+                  </div>
+                </form>
+              </motion.div>
+            </div>
+          </div>
+        )}
+      </AnimatePresence>
 
       {/* 3. ATELIER FOOTER */}
       <footer className="mt-20 border-t border-natural-wheat bg-white/40 py-10 text-center text-natural-espresso/50 text-xs">

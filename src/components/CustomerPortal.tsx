@@ -57,6 +57,7 @@ export default function CustomerPortal({
 }: CustomerPortalProps) {
   // Retrieve custom LINE OA settings from localStorage (configured by admin)
   const lineOaId = localStorage.getItem('nunuh_line_oa_id') || '';
+  const boutiquePhone = localStorage.getItem('nunuh_boutique_phone') || '086-555-1234';
 
   // States for Order Tracking
   const [searchQuery, setSearchQuery] = useState('');
@@ -1207,7 +1208,7 @@ export default function CustomerPortal({
                                   <span>พิมพ์ใบออเดอร์เฉพาะจุด 🖨️</span>
                                 </button>
                                 <a 
-                                  href={`tel:${order.customerPhone}`}
+                                  href={`tel:${boutiquePhone}`}
                                   className="bg-natural-sand hover:bg-natural-wheat text-natural-espresso font-semibold px-4 py-2 rounded-lg flex items-center space-x-1.5 transition-all cursor-pointer border border-natural-wheat/30"
                                 >
                                   <Phone className="h-3.5 w-3.5" />

@@ -202,6 +202,10 @@ export default function DashboardStats({ orders, onSelectTab }: DashboardStatsPr
               key={stat.id}
               id={stat.id}
               className={`p-5 rounded-2xl border transition-all duration-300 hover:shadow-md flex flex-col justify-between ${stat.color}`}
+              style={{
+                height: '200px',
+                width: stat.id === 'stat-total' ? '289px' : undefined
+              }}
             >
               <div>
                 <div className="flex items-center justify-between mb-2">

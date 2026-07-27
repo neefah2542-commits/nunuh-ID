@@ -20,6 +20,9 @@ app.use(express.json({
 
 const ORDERS_FILE = path.join(process.cwd(), 'orders.json');
 const DELETED_ORDERS_FILE = path.join(process.cwd(), 'deleted_orders.json');
+const CATALOGUE_FILE = path.join(process.cwd(), 'catalogue.json');
+const SETTINGS_FILE = path.join(process.cwd(), 'settings.json');
+const REVIEWS_FILE = path.join(process.cwd(), 'reviews.json');
 let lastKnownPublicUrl = "";
 
 // Helper to read orders from file safely
@@ -63,6 +66,67 @@ function writeDeletedOrdersOnServer(ids: string[]) {
     fs.writeFileSync(DELETED_ORDERS_FILE, JSON.stringify(ids, null, 2), 'utf8');
   } catch (err) {
     console.error("Error writing deleted orders:", err);
+  }
+}
+
+// Helpers for catalogue, settings, and reviews
+function readCatalogueOnServer() {
+  try {
+    if (fs.existsSync(CATALOGUE_FILE)) {
+      const data = fs.readFileSync(CATALOGUE_FILE, 'utf8');
+      return JSON.parse(data);
+    }
+  } catch (err) {
+    console.error("Error reading catalogue:", err);
+  }
+  return [];
+}
+
+function writeCatalogueOnServer(data: any[]) {
+  try {
+    fs.writeFileSync(CATALOGUE_FILE, JSON.stringify(data, null, 2), 'utf8');
+  } catch (err) {
+    console.error("Error writing catalogue:", err);
+  }
+}
+
+function readSettingsOnServer() {
+  try {
+    if (fs.existsSync(SETTINGS_FILE)) {
+      const data = fs.readFileSync(SETTINGS_FILE, 'utf8');
+      return JSON.parse(data);
+    }
+  } catch (err) {
+    console.error("Error reading settings:", err);
+  }
+  return {};
+}
+
+function writeSettingsOnServer(data: any) {
+  try {
+    fs.writeFileSync(SETTINGS_FILE, JSON.stringify(data, null, 2), 'utf8');
+  } catch (err) {
+    console.error("Error writing settings:", err);
+  }
+}
+
+function readReviewsOnServer() {
+  try {
+    if (fs.existsSync(REVIEWS_FILE)) {
+      const data = fs.readFileSync(REVIEWS_FILE, 'utf8');
+      return JSON.parse(data);
+    }
+  } catch (err) {
+    console.error("Error reading reviews:", err);
+  }
+  return [];
+}
+
+function writeReviewsOnServer(data: any[]) {
+  try {
+    fs.writeFileSync(REVIEWS_FILE, JSON.stringify(data, null, 2), 'utf8');
+  } catch (err) {
+    console.error("Error writing reviews:", err);
   }
 }
 
@@ -118,7 +182,11 @@ app.post("/api/orders", (req: any, res) => {
         map.set(o.id, o);
       } else {
         const existing = map.get(o.id)!;
-        map.set(o.id, { ...existing, ...o });
+        const existingTime = existing.updatedAt || 0;
+        const incomingTime = o.updatedAt || 0;
+        if (incomingTime >= existingTime) {
+          map.set(o.id, { ...existing, ...o });
+        }
       }
     }
     
@@ -144,7 +212,11 @@ app.post("/api/orders", (req: any, res) => {
         map.set(o.id, o);
       } else {
         const existing = map.get(o.id)!;
-        map.set(o.id, { ...existing, ...o });
+        const existingTime = existing.updatedAt || 0;
+        const incomingTime = o.updatedAt || 0;
+        if (incomingTime >= existingTime) {
+          map.set(o.id, { ...existing, ...o });
+        }
       }
     }
     const fullyMerged = Array.from(map.values()).sort((a, b) => {
@@ -154,6 +226,54 @@ app.post("/api/orders", (req: any, res) => {
     res.json(fullyMerged);
   } else {
     res.status(400).json({ error: "Invalid data format. Expected an array of orders or an object with orders." });
+  }
+});
+
+// REST API Endpoints for Catalogue, Settings, and Reviews
+app.get("/api/catalogue", (req, res) => {
+  const catalogue = readCatalogueOnServer();
+  res.json(catalogue);
+});
+
+app.post("/api/catalogue", (req, res) => {
+  const incoming = req.body;
+  if (Array.isArray(incoming)) {
+    writeCatalogueOnServer(incoming);
+    res.json({ success: true, catalogue: incoming });
+  } else {
+    res.status(400).json({ error: "Invalid data format. Expected an array of catalogue items." });
+  }
+});
+
+app.get("/api/settings", (req, res) => {
+  const settings = readSettingsOnServer();
+  res.json(settings);
+});
+
+app.post("/api/settings", (req, res) => {
+  const incoming = req.body;
+  if (incoming && typeof incoming === 'object') {
+    const current = readSettingsOnServer();
+    const updated = { ...current, ...incoming };
+    writeSettingsOnServer(updated);
+    res.json({ success: true, settings: updated });
+  } else {
+    res.status(400).json({ error: "Invalid data format. Expected an object." });
+  }
+});
+
+app.get("/api/reviews", (req, res) => {
+  const reviews = readReviewsOnServer();
+  res.json(reviews);
+});
+
+app.post("/api/reviews", (req, res) => {
+  const incoming = req.body;
+  if (Array.isArray(incoming)) {
+    writeReviewsOnServer(incoming);
+    res.json({ success: true, reviews: incoming });
+  } else {
+    res.status(400).json({ error: "Invalid data format. Expected an array of reviews." });
   }
 });
 

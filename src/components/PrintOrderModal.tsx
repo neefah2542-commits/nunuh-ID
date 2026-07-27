@@ -13,6 +13,7 @@ interface PrintOrderModalProps {
 export default function PrintOrderModal({ order, isOpen, onClose }: PrintOrderModalProps) {
   if (!isOpen || !order) return null;
 
+  const boutiquePhone = localStorage.getItem('nunuh_boutique_phone') || '086-555-1234';
   const [documentType, setDocumentType] = useState<'order' | 'receipt'>('order');
   const [receiptPaymentType, setReceiptPaymentType] = useState<'deposit' | 'full'>(
     order.deposit > 0 && Math.max(0, order.price - order.deposit - (order.discount || 0)) > 0 ? 'deposit' : 'full'
@@ -205,7 +206,7 @@ export default function PrintOrderModal({ order, isOpen, onClose }: PrintOrderMo
                     </div>
                     <p className="text-[10px] text-natural-espresso/60 leading-relaxed font-sans max-w-sm">
                       129/3 ซอยรามคำแหง 24 แขวงหัวหมาก เขตบางกะปิ กรุงเทพฯ 10240 <br />
-                      โทร: 086-555-1234 | LINE/IG: @nunuh.couture
+                      โทร: {boutiquePhone} | LINE/IG: @nunuh.couture
                     </p>
                   </div>
                   <div className="text-left sm:text-right space-y-1">
@@ -412,7 +413,7 @@ export default function PrintOrderModal({ order, isOpen, onClose }: PrintOrderMo
                     </div>
                     <p className="text-[10px] text-natural-espresso/60 leading-relaxed font-sans max-w-sm">
                       129/3 ซอยรามคำแหง 24 แขวงหัวหมาก เขตบางกะปิ กรุงเทพฯ 10240 <br />
-                      โทร: 086-555-1234 | LINE/IG: @nunuh.couture
+                      โทร: {boutiquePhone} | LINE/IG: @nunuh.couture
                     </p>
                   </div>
                   <div className="text-left sm:text-right space-y-1">

@@ -5,7 +5,7 @@
 
 import React, { useState, useRef } from 'react';
 import { CatalogueItem } from '../types';
-import { Search, Plus, Upload, X, Image, Sparkles, PlusCircle, Trash2 } from 'lucide-react';
+import { Search, Plus, Upload, X, Image, Sparkles, PlusCircle, Trash2, Pencil } from 'lucide-react';
 import { compressImage } from '../utils/image';
 
 interface DressCatalogueProps {
@@ -13,15 +13,24 @@ interface DressCatalogueProps {
   onSelectDesignForOrder: (designId: string) => void;
   onAddCatalogueItem: (newItem: CatalogueItem) => void;
   onDeleteCatalogueItem: (designId: string) => void;
+  onUpdateCatalogueItem?: (updatedItem: CatalogueItem) => void;
   isReadOnly?: boolean;
 }
 
-export default function DressCatalogue({ catalogue, onSelectDesignForOrder, onAddCatalogueItem, onDeleteCatalogueItem, isReadOnly = false }: DressCatalogueProps) {
+export default function DressCatalogue({ 
+  catalogue, 
+  onSelectDesignForOrder, 
+  onAddCatalogueItem, 
+  onDeleteCatalogueItem, 
+  onUpdateCatalogueItem,
+  isReadOnly = false 
+}: DressCatalogueProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('ALL');
 
-  // สเตตสำหรับ Modal เพิ่มแบบชุดใหม่
+  // สเตตสำหรับ Modal เพิ่ม/แก้ไขแบบชุดใหม่
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingItem, setEditingItem] = useState<CatalogueItem | null>(null);
   const [name, setName] = useState('');
   const [sku, setSku] = useState('');
   const [category, setCategory] = useState('Abaya');
@@ -113,7 +122,63 @@ export default function DressCatalogue({ catalogue, onSelectDesignForOrder, onAd
     }
   };
 
-  // บันทึกแบบชุดใหม่
+  const handleOpenEditModal = (item: CatalogueItem) => {
+    setEditingItem(item);
+    setName(item.name);
+    setSku(item.sku || '');
+    setCategory(item.category);
+    if (!['Abaya', 'Evening Gown', 'Minimalist', 'Traditional', 'Casual-Chic'].includes(item.category)) {
+      setCategory('Custom');
+      setCustomCategory(item.category);
+    } else {
+      setCustomCategory('');
+    }
+    setPriceRange(item.priceRange.replace(' บาท', ''));
+    setFabricRecommend(item.fabricRecommend);
+    setDescription(item.description);
+    setFeaturesInput(item.features.join(', '));
+    setFormSizes(item.sizes || ['SS', 'S', 'M', 'L', 'XL']);
+    
+    const newPriceMap: Record<string, string> = {
+      SS: '3800',
+      S: '4000',
+      M: '4200',
+      L: '4500',
+      XL: '4800'
+    };
+    if (item.sizePrices) {
+      Object.entries(item.sizePrices).forEach(([sz, pr]) => {
+        newPriceMap[sz] = String(pr);
+      });
+    }
+    setSizePricesMap(newPriceMap);
+    setImagePreview(item.image);
+    setIsModalOpen(true);
+  };
+
+  const handleOpenAddModal = () => {
+    setEditingItem(null);
+    setName('');
+    setSku('');
+    setCategory('Abaya');
+    setCustomCategory('');
+    setPriceRange('');
+    setFabricRecommend('');
+    setDescription('');
+    setFeaturesInput('');
+    setFormSizes(['SS', 'S', 'M', 'L', 'XL']);
+    setSizePricesMap({
+      SS: '3800',
+      S: '4000',
+      M: '4200',
+      L: '4500',
+      XL: '4800'
+    });
+    setImagePreview(null);
+    setIsModalOpen(true);
+  };
+
+  // บันทึกแบบชุดใหม่ หรือ บันทึกแก้ไขแบบชุดเดิม
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!name || !priceRange || !fabricRecommend || !description) {
@@ -133,21 +198,43 @@ export default function DressCatalogue({ catalogue, onSelectDesignForOrder, onAd
       }
     });
 
-    const newItem: CatalogueItem = {
-      id: `cat-${Date.now()}`,
-      sku: sku.trim() || undefined,
-      name,
-      description,
-      priceRange: priceRange.includes('บาท') ? priceRange : `${priceRange} บาท`,
-      fabricRecommend,
-      image: imagePreview || "https://images.unsplash.com/photo-1512436991641-6745cdb1723f?auto=format&fit=crop&q=80&w=600",
-      category: finalCategory,
-      features: finalFeatures,
-      sizes: formSizes.length > 0 ? formSizes : undefined,
-      sizePrices: Object.keys(finalSizePrices).length > 0 ? finalSizePrices : undefined
-    };
+    if (editingItem) {
+      const updatedItem: CatalogueItem = {
+        ...editingItem,
+        sku: sku.trim() || undefined,
+        name,
+        description,
+        priceRange: priceRange.includes('บาท') ? priceRange : `${priceRange} บาท`,
+        fabricRecommend,
+        image: imagePreview || "https://images.unsplash.com/photo-1512436991641-6745cdb1723f?auto=format&fit=crop&q=80&w=600",
+        category: finalCategory,
+        features: finalFeatures,
+        sizes: formSizes.length > 0 ? formSizes : undefined,
+        sizePrices: Object.keys(finalSizePrices).length > 0 ? finalSizePrices : undefined
+      };
+      
+      if (onUpdateCatalogueItem) {
+        onUpdateCatalogueItem(updatedItem);
+      }
+      alert("แก้ไขรายละเอียดแบบชุดในแคตตาล็อก NUNUH เรียบร้อยแล้วค่ะ! 💖");
+    } else {
+      const newItem: CatalogueItem = {
+        id: `cat-${Date.now()}`,
+        sku: sku.trim() || undefined,
+        name,
+        description,
+        priceRange: priceRange.includes('บาท') ? priceRange : `${priceRange} บาท`,
+        fabricRecommend,
+        image: imagePreview || "https://images.unsplash.com/photo-1512436991641-6745cdb1723f?auto=format&fit=crop&q=80&w=600",
+        category: finalCategory,
+        features: finalFeatures,
+        sizes: formSizes.length > 0 ? formSizes : undefined,
+        sizePrices: Object.keys(finalSizePrices).length > 0 ? finalSizePrices : undefined
+      };
 
-    onAddCatalogueItem(newItem);
+      onAddCatalogueItem(newItem);
+      alert("เพิ่มแบบชุดใหม่เข้าสู่แคตตาล็อก NUNUH เรียบร้อยแล้วค่ะ! 💖");
+    }
     
     // ล้างข้อมูลฟอร์ม
     setName('');
@@ -167,9 +254,8 @@ export default function DressCatalogue({ catalogue, onSelectDesignForOrder, onAd
       XL: '4800'
     });
     setImagePreview(null);
+    setEditingItem(null);
     setIsModalOpen(false);
-
-    alert("เพิ่มแบบชุดใหม่เข้าสู่แคตตาล็อก NUNUH เรียบร้อยแล้วค่ะ! 💖");
   };
 
   return (
@@ -185,7 +271,7 @@ export default function DressCatalogue({ catalogue, onSelectDesignForOrder, onAd
               {!isReadOnly && (
                 <button
                   type="button"
-                  onClick={() => setIsModalOpen(true)}
+                  onClick={handleOpenAddModal}
                   className="bg-natural-clay hover:bg-natural-clay-dark text-white text-[10px] font-bold px-3 py-1 rounded-full flex items-center space-x-1 shadow-xs transition-all cursor-pointer"
                 >
                   <Plus className="h-3 w-3" />
@@ -296,18 +382,28 @@ export default function DressCatalogue({ catalogue, onSelectDesignForOrder, onAd
                 </span>
                 <div className="flex items-center space-x-2">
                   {!isReadOnly && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (window.confirm(`คุณต้องการลบแบบชุด "${item.name}" ออกจากแคตตาล็อกใช่หรือไม่?`)) {
-                          onDeleteCatalogueItem(item.id);
-                        }
-                      }}
-                      className="p-2 rounded-xl bg-rose-50 text-rose-700 hover:bg-rose-100 transition-all cursor-pointer border border-rose-200 text-xs flex items-center justify-center"
-                      title="ลบแบบชุดนี้"
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </button>
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => handleOpenEditModal(item)}
+                        className="p-2 rounded-xl bg-amber-50 text-amber-700 hover:bg-amber-100 transition-all cursor-pointer border border-amber-200 text-xs flex items-center justify-center"
+                        title="แก้ไขแบบชุดนี้"
+                      >
+                        <Pencil className="h-3.5 w-3.5" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (window.confirm(`คุณต้องการลบแบบชุด "${item.name}" ออกจากแคตตาล็อกใช่หรือไม่?`)) {
+                            onDeleteCatalogueItem(item.id);
+                          }
+                        }}
+                        className="p-2 rounded-xl bg-rose-50 text-rose-700 hover:bg-rose-100 transition-all cursor-pointer border border-rose-200 text-xs flex items-center justify-center"
+                        title="ลบแบบชุดนี้"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    </>
                   )}
                   <button
                     type="button"
@@ -337,7 +433,9 @@ export default function DressCatalogue({ catalogue, onSelectDesignForOrder, onAd
                   <Sparkles className="h-4 w-4 text-natural-ochre" />
                 </div>
                 <div>
-                  <h3 className="font-serif font-bold text-base text-natural-sand">อัปโหลดแบบชุดใหม่ลงคลังผลงาน (Upload New Dress Design)</h3>
+                  <h3 className="font-serif font-bold text-base text-natural-sand">
+                    {editingItem ? 'แก้ไขรายละเอียดแบบชุดดีไซน์ (Edit Dress Design)' : 'อัปโหลดแบบชุดใหม่ลงคลังผลงาน (Upload New Dress Design)'}
+                  </h3>
                   <p className="text-[10px] text-natural-sand/70">บันทึกแบบดีไซน์ใหม่ลงแคตตาล็อกทางร้าน เพื่อใช้อ้างอิงและเสนอให้ลูกค้าเลือกสั่งตัด</p>
                 </div>
               </div>
@@ -587,7 +685,7 @@ export default function DressCatalogue({ catalogue, onSelectDesignForOrder, onAd
                   className="flex-1 bg-natural-espresso hover:bg-natural-clay text-natural-cream hover:text-white py-2.5 rounded-xl text-xs font-serif font-bold transition-all flex items-center justify-center space-x-1.5 shadow-xs cursor-pointer"
                 >
                   <PlusCircle className="h-4 w-4" />
-                  <span>บันทึกเข้าแคตตาล็อก</span>
+                  <span>{editingItem ? 'บันทึกการแก้ไขแบบชุด' : 'บันทึกเข้าแคตตาล็อก'}</span>
                 </button>
               </div>
 
