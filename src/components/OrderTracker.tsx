@@ -327,7 +327,7 @@ export default function OrderTracker({ orders, onUpdateOrderStatus, onDeleteOrde
       month: 'long',
       year: 'numeric'
     });
-    const portalUrl = `${publicUrl}?tab=customer&search=${order.customerPhone}&mode=customer`;
+    const portalUrl = `${publicUrl}?tab=customer&search=${order.customerPhone}${order.lineUserId ? `&lineUserId=${order.lineUserId}` : ''}&mode=customer`;
     const message = `⚜️ อัปเดตสถานะชุดสั่งตัด NUNUH Boutique ⚜️\n\nเรียนคุณ: ${order.customerName}\nรหัสออเดอร์: ${order.orderNumber}\nประเภทชุด: ${order.dressType}\n\n📍 สถานะปัจจุบัน: [${currentStatusCfg.label}]\n➡️ "${currentStatusCfg.description}"\n\n📅 กำหนดส่งมอบ: ${formattedDelivery}\n\nท่านสามารถตรวจสอบข้อมูลสัดส่วนและติดตามความคืบหน้าแบบละเอียดด้วยตนเองได้ที่นี่:\n🔗 ${portalUrl}\n\nขอขอบพระคุณที่เลือกใช้บริการค่ะ ✨`;
 
     // 1. คัดลอกข้อความลง Clipboard อัตโนมัติ เพื่อให้แอดมินนำไปวางกดส่งได้ทันที
@@ -387,7 +387,7 @@ export default function OrderTracker({ orders, onUpdateOrderStatus, onDeleteOrde
       month: 'long',
       year: 'numeric'
     });
-    const portalUrl = `${publicUrl}?tab=customer&search=${order.customerPhone}&mode=customer`;
+    const portalUrl = `${publicUrl}?tab=customer&search=${order.customerPhone}${order.lineUserId ? `&lineUserId=${order.lineUserId}` : ''}&mode=customer`;
     const message = `⚜️ อัปเดตสถานะชุดสั่งตัด NUNUH Boutique ⚜️\n\nเรียนคุณ: ${order.customerName}\nรหัสออเดอร์: ${order.orderNumber}\nประเภทชุด: ${order.dressType}\n\n📍 สถานะปัจจุบัน: [${currentStatusCfg.label}]\n➡️ "${currentStatusCfg.description}"\n\n📅 กำหนดส่งมอบ: ${formattedDelivery}\n\nท่านสามารถตรวจสอบข้อมูลสัดส่วนและติดตามความคืบหน้าแบบละเอียดด้วยตนเองได้ที่นี่:\n🔗 ${portalUrl}\n\nขอขอบพระคุณที่เลือกใช้บริการค่ะ ✨`;
 
     // คัดลอกลงคลิปบอร์ดก่อนเสมอ เพื่อกันข้อผิดพลาดและอำนวยความสะดวก
@@ -701,7 +701,7 @@ export default function OrderTracker({ orders, onUpdateOrderStatus, onDeleteOrde
               </button>
             </div>
             <p className="text-[10px] text-amber-600 font-bold pl-3">
-              💡 ลิงก์อัพเดตที่จะถูกแชร์: <span className="break-all font-mono text-[9px] bg-amber-50 px-1 py-0.5 rounded">{publicUrl}?tab=customer&search=เบอร์โทรศัพท์ลูกค้า&mode=customer</span>
+              💡 ลิงก์อัพเดตที่จะถูกแชร์: <span className="break-all font-mono text-[9px] bg-amber-50 px-1 py-0.5 rounded">{publicUrl}?tab=customer&search=เบอร์โทรศัพท์ลูกค้า&lineUserId=ไอดีไลน์ลูกค้า&mode=customer</span>
             </p>
           </div>
 
@@ -1556,7 +1556,7 @@ export default function OrderTracker({ orders, onUpdateOrderStatus, onDeleteOrde
                                   month: 'long',
                                   year: 'numeric'
                                 });
-                                const portalUrl = `${publicUrl}?tab=customer&search=${order.customerPhone}&mode=customer`;
+                                const portalUrl = `${publicUrl}?tab=customer&search=${order.customerPhone}${order.lineUserId ? `&lineUserId=${order.lineUserId}` : ''}&mode=customer`;
                                 const message = `⚜️ อัปเดตสถานะชุดสั่งตัด NUNUH Boutique ⚜️\n\nเรียนคุณ: ${order.customerName}\nรหัสออเดอร์: ${order.orderNumber}\nประเภทชุด: ${order.dressType}\n\n📍 สถานะปัจจุบัน: [${currentStatusCfg.label}]\n➡️ "${currentStatusCfg.description}"\n\n📅 กำหนดส่งมอบ: ${formattedDelivery}\n\nท่านสามารถตรวจสอบข้อมูลสัดส่วนและติดตามความคืบหน้าแบบละเอียดด้วยตนเองได้ที่นี่:\n🔗 ${portalUrl}\n\nขอขอบพระคุณที่เลือกใช้บริการค่ะ ✨`;
                                 
                                 navigator.clipboard.writeText(message);

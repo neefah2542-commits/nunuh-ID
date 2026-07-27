@@ -59,6 +59,7 @@ export default function CustomerPortal({
   const [searchQuery, setSearchQuery] = useState('');
   const [searchedOrders, setSearchedOrders] = useState<Order[] | null>(null);
   const [hasSearched, setHasSearched] = useState(false);
+  const [isLineLocked, setIsLineLocked] = useState(false);
 
   const [printingOrder, setPrintingOrder] = useState<Order | null>(null);
 
@@ -267,7 +268,25 @@ export default function CustomerPortal({
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     let searchQueryParam = params.get('search');
+    let lineUserIdParam = params.get('lineUserId');
     
+    // Support saving/restoring lineUserId
+    if (lineUserIdParam) {
+      localStorage.setItem('nunuh_customer_portal_line_userid', lineUserIdParam);
+    } else {
+      lineUserIdParam = localStorage.getItem('nunuh_customer_portal_line_userid');
+    }
+
+    if (isCustomerLocked && lineUserIdParam) {
+      setIsLineLocked(true);
+      // Strictly filter by lineUserId
+      const matched = orders.filter(order => order.lineUserId === lineUserIdParam);
+      setSearchedOrders(matched);
+      setHasSearched(true);
+      setSearchQuery('');
+      return;
+    }
+
     if (searchQueryParam) {
       localStorage.setItem('nunuh_customer_portal_phone', searchQueryParam);
     } else {
@@ -297,6 +316,16 @@ export default function CustomerPortal({
         );
       });
 
+      // If we are in customer mode and matched orders, check if any of them has a lineUserId.
+      // If yes, lock the session to that lineUserId for security!
+      if (isCustomerLocked && matched.length > 0) {
+        const orderWithLineId = matched.find(o => o.lineUserId);
+        if (orderWithLineId && orderWithLineId.lineUserId) {
+          localStorage.setItem('nunuh_customer_portal_line_userid', orderWithLineId.lineUserId);
+          setIsLineLocked(true);
+        }
+      }
+
       setSearchedOrders(matched);
       setHasSearched(true);
     }
@@ -305,6 +334,18 @@ export default function CustomerPortal({
   // Handle Search Orders
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
+
+    // Check if locked to LINE ID in session
+    const savedLineUserId = localStorage.getItem('nunuh_customer_portal_line_userid');
+    if (isCustomerLocked && savedLineUserId) {
+      setIsLineLocked(true);
+      const matched = orders.filter(order => order.lineUserId === savedLineUserId);
+      setSearchedOrders(matched);
+      setHasSearched(true);
+      setSearchQuery('');
+      return;
+    }
+
     const query = searchQuery.trim().toLowerCase();
     if (!query) return;
 
@@ -330,6 +371,14 @@ export default function CustomerPortal({
         (order.sku && order.sku.toLowerCase().includes(query))
       );
     });
+
+    if (isCustomerLocked && matched.length > 0) {
+      const orderWithLineId = matched.find(o => o.lineUserId);
+      if (orderWithLineId && orderWithLineId.lineUserId) {
+        localStorage.setItem('nunuh_customer_portal_line_userid', orderWithLineId.lineUserId);
+        setIsLineLocked(true);
+      }
+    }
 
     setSearchedOrders(matched);
     setHasSearched(true);
@@ -451,7 +500,10 @@ export default function CustomerPortal({
         </div>
 
         {/* Search Bar */}
-        {isCustomerLocked && hasSearched && searchedOrders && searchedOrders.length > 0 ? (
+        {isCustomerLocked && hasSearched && (
+          (searchedOrders && searchedOrders.length > 0) || 
+          localStorage.getItem('nunuh_customer_portal_line_userid')
+        ) ? (
           <div className="bg-natural-sand/15 border border-natural-wheat rounded-2xl p-4 flex flex-col sm:flex-row justify-between items-center gap-3 relative overflow-hidden">
             <div className="absolute top-0 left-0 w-1.5 h-full bg-emerald-500"></div>
             <div className="flex items-center space-x-3 pl-2">
@@ -464,13 +516,41 @@ export default function CustomerPortal({
                   ระบบรักษาความปลอดภัยส่วนบุคคล (Secure Customer Portal)
                 </p>
                 <p className="text-[11px] text-natural-espresso/60 mt-0.5">
-                  แสดงข้อมูลคิวงานสั่งตัดเฉพาะหมายเลข: <span className="font-mono font-bold text-natural-clay">{searchQuery}</span>
+                  {localStorage.getItem('nunuh_customer_portal_line_userid') ? (
+                    <span className="flex items-center gap-1 flex-wrap">
+                      🟢 <strong className="text-emerald-700">ผูกกับบัญชี LINE ของคุณสำเร็จแล้ว</strong> (แสดงเฉพาะข้อมูลออเดอร์ส่วนบุคคลของคุณเท่านั้น)
+                    </span>
+                  ) : (
+                    <span>
+                      แสดงข้อมูลคิวงานสั่งตัดเฉพาะหมายเลข: <span className="font-mono font-bold text-natural-clay">{searchQuery}</span>
+                    </span>
+                  )}
                 </p>
               </div>
             </div>
-            <span className="text-[10px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200 px-2.5 py-1 rounded-full uppercase tracking-wide whitespace-nowrap">
-              🛡️ สิทธิ์การเข้าถึงแบบจำกัด
-            </span>
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-[10px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200 px-2.5 py-1 rounded-full uppercase tracking-wide whitespace-nowrap">
+                🛡️ ล็อกสิทธิ์เข้าถึงของ LINE นี้
+              </span>
+              <button
+                type="button"
+                onClick={() => {
+                  if (confirm('คุณต้องการล้างข้อมูลเซสชันความปลอดภัยและกลับไปหน้าค้นหาหรือไม่?')) {
+                    localStorage.removeItem('nunuh_customer_portal_line_userid');
+                    localStorage.removeItem('nunuh_customer_portal_phone');
+                    setIsLineLocked(false);
+                    setSearchedOrders(null);
+                    setHasSearched(false);
+                    setSearchQuery('');
+                    window.location.href = window.location.pathname + '?mode=customer';
+                  }
+                }}
+                className="text-[10px] text-natural-clay/60 hover:text-natural-clay font-bold hover:underline cursor-pointer ml-1"
+                title="ล้างข้อมูลเซสชันเพื่อเริ่มใหม่"
+              >
+                ล้างเซสชัน 🔄
+              </button>
+            </div>
           </div>
         ) : (
           <form onSubmit={handleSearch} className="flex flex-col sm:flex-row gap-3">
@@ -1533,10 +1613,32 @@ export default function CustomerPortal({
           {hasSearched && searchedOrders && searchedOrders.length === 0 && (
             <div className="bg-natural-sand/15 border border-dashed border-natural-wheat rounded-2xl py-12 px-6 text-center text-natural-espresso/60 animate-fade-in">
               <User className="h-10 w-10 mx-auto text-natural-espresso/25 mb-3" />
-              <p className="font-medium">ไม่พบคิวออเดอร์ตัดเย็บของคุณ</p>
-              <p className="text-xs mt-1 max-w-sm mx-auto">
-                ลองตรวจสอบตัวสะกดเบอร์โทรศัพท์อีกครั้ง หรือตรวจสอบกับทางดีไซเนอร์ว่ามีการลงบันทึกเบอร์โทรของท่านตรงกันหรือไม่ค่ะ
-              </p>
+              {localStorage.getItem('nunuh_customer_portal_line_userid') ? (
+                <>
+                  <p className="font-bold text-natural-espresso text-base">🔗 บัญชี LINE นี้ยังไม่มีประวัติการผูกออเดอร์ค่ะ</p>
+                  <p className="text-xs mt-2 max-w-md mx-auto leading-relaxed text-natural-espresso/70">
+                    หากคุณเพิ่งแอดไลน์หรือส่งข้อมูลมา สาเหตุเกิดจากระบบยังไม่เคยจับคู่เบอร์โทรศัพท์หรือเลขที่ออเดอร์ของคุณเข้ากับ LINE บัญชีนี้ในฐานข้อมูลค่ะ
+                  </p>
+                  <div className="mt-5 p-5 bg-white/95 rounded-2xl border border-natural-wheat/60 max-w-md mx-auto text-left text-xs space-y-2 text-natural-espresso/85 shadow-sm">
+                    <p className="font-bold text-natural-clay text-sm flex items-center gap-1.5">
+                      <span>🛠️ วิธีแก้ไขและผูกข้อมูลใน 1 วินาที:</span>
+                    </p>
+                    <ol className="list-decimal list-inside space-y-1.5 pl-1 text-[11px] text-natural-espresso/75 leading-relaxed">
+                      <li>กรุณาเปิดหน้าแชท LINE ของคุณที่คุยกับร้าน <strong>@237aynfq</strong></li>
+                      <li>พิมพ์ส่ง <strong>"เบอร์โทรศัพท์มือถือ"</strong> (เช่น 0812345678) หรือ <strong>"เลขที่ออเดอร์"</strong> (เช่น NU-26001) เข้าแชทร้าน</li>
+                      <li>ระบบ Webhook จะทำการจับคู่ความปลอดภัยและบันทึกออเดอร์เข้าบัญชี LINE ของคุณโดยอัตโนมัติทันที</li>
+                      <li>หลังจากนั้น คุณจะสามารถกดลิงก์นี้เพื่อดูรายละเอียด สัดส่วนวัดตัว และคิวการเย็บแบบฟิกสิทธิ์เฉพาะคุณได้ตลอด 24 ชั่วโมงค่ะ 🟢</li>
+                    </ol>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <p className="font-medium">ไม่พบคิวออเดอร์ตัดเย็บของคุณ</p>
+                  <p className="text-xs mt-1 max-w-sm mx-auto">
+                    ลองตรวจสอบตัวสะกดเบอร์โทรศัพท์อีกครั้ง หรือตรวจสอบกับทางดีไซเนอร์ว่ามีการลงบันทึกเบอร์โทรของท่านตรงกันหรือไม่ค่ะ
+                  </p>
+                </>
+              )}
             </div>
           )}
         </div>

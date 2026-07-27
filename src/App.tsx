@@ -178,16 +178,35 @@ export default function App() {
     const params = new URLSearchParams(window.location.search);
     const modeParam = params.get('mode');
     const roleParam = params.get('role');
-    if (modeParam === 'staff' || roleParam === 'staff') {
+    
+    // Save or load isCustomerMode / isStaffMode to/from localStorage for persistence!
+    let currentMode = '';
+    if (modeParam) {
+      currentMode = modeParam;
+      localStorage.setItem('nunuh_user_mode', modeParam);
+    } else if (roleParam) {
+      currentMode = roleParam;
+      localStorage.setItem('nunuh_user_mode', roleParam);
+    } else {
+      currentMode = localStorage.getItem('nunuh_user_mode') || '';
+    }
+
+    if (currentMode === 'staff') {
       setIsStaffMode(true);
+      setIsCustomerMode(false);
       setActiveTab('orderForm');
-    } else if (modeParam === 'customer') {
+    } else if (currentMode === 'customer' || localStorage.getItem('nunuh_customer_portal_line_userid')) {
+      // If locked to a LINE User ID, force customer mode for maximum security
       setIsCustomerMode(true);
+      setIsStaffMode(false);
       setActiveTab('customer');
     } else {
       const tabParam = params.get('tab');
       if (tabParam) {
         setActiveTab(tabParam);
+        if (tabParam === 'customer') {
+          setIsCustomerMode(true);
+        }
       }
     }
 
