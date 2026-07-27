@@ -181,6 +181,8 @@ export default function OrderForm({ catalogue, onAddOrder, nextOrderNumber, orde
           setDeposit((parseInt(cleanNum) / 2).toString());
         }
       }
+    } else {
+      setSelectedDesignId('custom');
     }
   };
 
@@ -699,6 +701,24 @@ export default function OrderForm({ catalogue, onAddOrder, nextOrderNumber, orde
               <div className="space-y-3">
                 <div>
                   <label className="block text-xs font-medium text-natural-espresso/70 mb-1 flex items-center space-x-1">
+                    <span>เลือกแบบชุดเสนอแนะนำ (Designer Catalogue Selection)</span>
+                  </label>
+                  <select
+                    value={selectedDesignId}
+                    onChange={(e) => handleSelectDesign(e.target.value)}
+                    className="w-full text-sm px-3 py-2 rounded-xl border border-natural-wheat focus:outline-none focus:ring-2 focus:ring-natural-clay/20 focus:border-natural-clay bg-white text-natural-espresso font-semibold"
+                  >
+                    <option value="custom">✨ กำหนดเอง / ออกแบบพิเศษ (Custom Design)</option>
+                    {catalogue.map((item) => (
+                      <option key={item.id} value={item.id}>
+                        {item.sku ? `[${item.sku}] ` : ''}{item.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-natural-espresso/70 mb-1 flex items-center space-x-1">
                     <span>รหัสสินค้า / SKU</span>
                     <span className="text-[10px] text-natural-clay font-bold">(ดึงอัตโนมัติ/ระบุเพิ่ม)</span>
                   </label>
@@ -718,6 +738,47 @@ export default function OrderForm({ catalogue, onAddOrder, nextOrderNumber, orde
                     ))}
                   </datalist>
                 </div>
+
+                {/* แสดงรูปตัวอย่างชุดและข้อมูลแบบชุดเสนอแนะนำที่เลือก */}
+                {(() => {
+                  const matchedItem = selectedDesignId !== 'custom'
+                    ? catalogue.find(item => item.id === selectedDesignId)
+                    : (sku ? catalogue.find(item => item.sku && item.sku.toUpperCase() === sku.toUpperCase().trim()) : null);
+
+                  if (!matchedItem) return null;
+
+                  return (
+                    <div className="bg-natural-sand/15 border border-natural-wheat rounded-2xl p-4 flex flex-col sm:flex-row items-center sm:items-start gap-4 animate-fade-in mt-2">
+                      <div className="w-24 h-24 sm:w-28 sm:h-28 bg-white rounded-xl border border-natural-wheat p-1 flex-shrink-0 flex items-center justify-center overflow-hidden shadow-2xs">
+                        <img 
+                          src={matchedItem.image} 
+                          alt={matchedItem.name} 
+                          className="w-full h-full object-cover rounded-lg"
+                          referrerPolicy="no-referrer"
+                        />
+                      </div>
+                      <div className="flex-1 min-w-0 text-center sm:text-left space-y-1">
+                        <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2">
+                          <span className="text-[10px] bg-natural-clay text-white px-2.5 py-0.5 rounded-full font-bold uppercase tracking-wider font-mono">
+                            {matchedItem.sku}
+                          </span>
+                          <span className="text-[10px] bg-natural-sand text-natural-espresso px-2 py-0.5 rounded-full font-bold">
+                            {matchedItem.category}
+                          </span>
+                        </div>
+                        <h4 className="text-sm font-serif font-bold text-natural-espresso">
+                          {matchedItem.name}
+                        </h4>
+                        <p className="text-xs text-natural-espresso/70 leading-relaxed line-clamp-2">
+                          {matchedItem.description}
+                        </p>
+                        <p className="text-xs text-natural-ochre font-bold pt-1">
+                          เริ่มต้น: {matchedItem.priceRange} (ผ้าแนะนำ: {matchedItem.fabricRecommend})
+                        </p>
+                      </div>
+                    </div>
+                  );
+                })()}
 
                 <div>
                   <label className="block text-xs font-medium text-natural-espresso/70 mb-1">รหัสสี / สีผ้าที่ต้องการ</label>

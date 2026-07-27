@@ -133,7 +133,13 @@ export default function App() {
     const savedCatalogue = localStorage.getItem('nunuh_catalogue');
     if (savedCatalogue) {
       try {
-        const parsed = JSON.parse(savedCatalogue) as CatalogueItem[];
+        let parsed = JSON.parse(savedCatalogue) as CatalogueItem[];
+        // กรองแบบชุดตัวอย่างเริ่มต้นที่แถมมากับแอปออก (เช่น cat-1 ถึง cat-16) เพื่อให้เหลือแต่แบบชุดของเจ้าของร้านที่เพิ่มขึ้นมาใหม่เอง
+        parsed = parsed.filter(item => {
+          const idNum = parseInt(item.id.replace('cat-', ''), 10);
+          return isNaN(idNum) || idNum > 10000;
+        });
+        
         const missingItems = INITIAL_CATALOGUE.filter(item => !parsed.some(p => p.id === item.id));
         if (missingItems.length > 0) {
           const merged = [...parsed, ...missingItems];
@@ -141,6 +147,7 @@ export default function App() {
           localStorage.setItem('nunuh_catalogue', JSON.stringify(merged));
         } else {
           setCatalogue(parsed);
+          localStorage.setItem('nunuh_catalogue', JSON.stringify(parsed));
         }
       } catch (e) {
         setCatalogue(INITIAL_CATALOGUE);

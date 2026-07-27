@@ -530,6 +530,45 @@ export default function EditOrderModal({ order, onClose, onSave }: EditOrderModa
                   </datalist>
                 </div>
 
+                {/* แสดงรูปตัวอย่างชุดและข้อมูลแบบชุดเสนอแนะนำที่เลือก */}
+                {(() => {
+                  const matchedItem = sku ? catalogue.find(item => item.sku && item.sku.toUpperCase() === sku.toUpperCase().trim()) : null;
+
+                  if (!matchedItem) return null;
+
+                  return (
+                    <div className="col-span-2 bg-natural-sand/15 border border-natural-wheat rounded-2xl p-4 flex flex-col sm:flex-row items-center sm:items-start gap-4 animate-fade-in mt-1">
+                      <div className="w-20 h-20 bg-white rounded-xl border border-natural-wheat p-1 flex-shrink-0 flex items-center justify-center overflow-hidden shadow-2xs">
+                        <img 
+                          src={matchedItem.image} 
+                          alt={matchedItem.name} 
+                          className="w-full h-full object-cover rounded-lg"
+                          referrerPolicy="no-referrer"
+                        />
+                      </div>
+                      <div className="flex-1 min-w-0 text-center sm:text-left space-y-1">
+                        <div className="flex flex-wrap items-center justify-center sm:justify-start gap-1.5">
+                          <span className="text-[9px] bg-natural-clay text-white px-2 py-0.5 rounded-full font-bold uppercase tracking-wider font-mono">
+                            {matchedItem.sku}
+                          </span>
+                          <span className="text-[9px] bg-natural-sand text-natural-espresso px-2 py-0.5 rounded-full font-bold">
+                            {matchedItem.category}
+                          </span>
+                        </div>
+                        <h4 className="text-xs font-serif font-bold text-natural-espresso">
+                          {matchedItem.name}
+                        </h4>
+                        <p className="text-[11px] text-natural-espresso/70 leading-relaxed line-clamp-2">
+                          {matchedItem.description}
+                        </p>
+                        <p className="text-[11px] text-natural-ochre font-bold">
+                          เริ่มต้น: {matchedItem.priceRange} (ผ้าแนะนำ: {matchedItem.fabricRecommend})
+                        </p>
+                      </div>
+                    </div>
+                  );
+                })()}
+
                 <div className="col-span-2">
                   <label className="block text-xs font-semibold text-natural-espresso/70 mb-1">หมายเหตุเพิ่มเติมของชุด (Dress Notes)</label>
                   <textarea
