@@ -174,18 +174,115 @@ body {
     width: 100% !important;
     max-width: 100% !important;
     margin: 0 !important;
-    padding: 0 !important;
+    padding: 6mm 10mm !important;
     box-shadow: none !important;
     border: none !important;
     background: white !important;
     color: #2D2421 !important;
     page-break-inside: avoid !important;
     break-inside: avoid !important;
+    box-sizing: border-box !important;
   }
 
   .print-only-modal *,
   .print-card-container * {
     visibility: visible !important;
+  }
+
+  /* Force desktop multi-column and side-by-side layouts when printing from mobile browsers */
+  .print-only-modal .flex.flex-col.sm\:flex-row,
+  .print-card-container .flex.flex-col.sm\:flex-row {
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    flex-wrap: nowrap !important;
+    width: 100% !important;
+    gap: 4px !important;
+  }
+
+  /* Ensure text alignments stay side-by-side */
+  .print-only-modal .text-left.sm\:text-right,
+  .print-card-container .text-left.sm\:text-right {
+    text-align: right !important;
+  }
+
+  /* Force customer and receipt details to remain 3 columns even on mobile screens */
+  .print-only-modal .grid.grid-cols-2.sm\:grid-cols-3,
+  .print-card-container .grid.grid-cols-2.sm\:grid-cols-3 {
+    display: grid !important;
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+    gap: 3mm !important;
+    width: 100% !important;
+  }
+
+  /* Force measurements grid to be 5-column wide layout during printing */
+  .print-only-modal .grid.grid-cols-3.sm\:grid-cols-5,
+  .print-card-container .grid.grid-cols-3.sm\:grid-cols-5 {
+    display: grid !important;
+    grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
+    gap: 1.5mm !important;
+    width: 100% !important;
+  }
+
+  /* Force custom design details and images reference to be 2-column side-by-side */
+  .print-only-modal .grid.grid-cols-1.md\:grid-cols-2,
+  .print-card-container .grid.grid-cols-1.md\:grid-cols-2 {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 4mm !important;
+    width: 100% !important;
+  }
+
+  /* Force financial summary cards layout to stay in columns/rows */
+  .print-only-modal .flex.flex-col.sm\:flex-row.justify-between.items-start.sm\:items-center,
+  .print-card-container .flex.flex-col.sm\:flex-row.justify-between.items-start.sm\:items-center {
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    width: 100% !important;
+  }
+
+  .print-only-modal .grid.grid-cols-2.sm\:grid-cols-4,
+  .print-card-container .grid.grid-cols-2.sm\:grid-cols-4 {
+    display: grid !important;
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+    gap: 1.5mm !important;
+    width: auto !important;
+  }
+
+  .print-only-modal .grid.grid-cols-3,
+  .print-card-container .grid.grid-cols-3 {
+    display: grid !important;
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+    gap: 1.5mm !important;
+    width: auto !important;
+  }
+
+  /* Force customer proportions photos to align horizontally in small cards */
+  .print-only-modal .customer-photos-section .flex-wrap,
+  .print-card-container .customer-photos-section .flex-wrap {
+    display: flex !important;
+    flex-direction: row !important;
+    flex-wrap: nowrap !important;
+    gap: 3mm !important;
+    justify-content: flex-start !important;
+  }
+
+  /* Force recipient/customer signature lines to stay side-by-side */
+  .print-only-modal .flex.justify-between.items-end.pt-6.gap-6,
+  .print-only-modal .pt-6 .flex.justify-between.items-end.gap-6,
+  .print-only-modal .pt-4 .flex.justify-between.items-end.gap-6,
+  .print-card-container .flex.justify-between.items-end.pt-6.gap-6,
+  .print-card-container .pt-6 .flex.justify-between.items-end.gap-6,
+  .print-card-container .pt-4 .flex.justify-between.items-end.gap-6 {
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: flex-end !important;
+    justify-content: space-between !important;
+    flex-wrap: nowrap !important;
+    width: 100% !important;
   }
 
   /* Tighten paddings, margins, and layouts specifically for single-page print fit */
