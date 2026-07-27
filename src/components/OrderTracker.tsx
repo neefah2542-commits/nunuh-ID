@@ -864,8 +864,48 @@ export default function OrderTracker({ orders, onUpdateOrderStatus, onDeleteOrde
                   </div>
                 )}
                 {testStatus.status === 'error' && (
-                  <div className="p-2.5 bg-rose-50 text-rose-700 text-[10.5px] rounded-lg border border-rose-200 font-medium whitespace-pre-wrap leading-relaxed">
-                    {testStatus.errorMsg}
+                  <div className="space-y-3">
+                    <div className="p-2.5 bg-rose-50 text-rose-700 text-[10.5px] rounded-lg border border-rose-200 font-medium whitespace-pre-wrap leading-relaxed">
+                      {testStatus.errorMsg}
+                    </div>
+
+                    {/* Troubleshooting Guide for Failed to send messages */}
+                    {testStatus.errorMsg.includes('Failed to send messages') && (
+                      <div className="p-3 bg-amber-50/50 rounded-xl border border-amber-200/70 text-[10px] text-natural-espresso/80 space-y-2 leading-relaxed">
+                        <p className="font-black text-amber-800 flex items-center gap-1">
+                          <span>💡 แนะนำวิธีแก้ไขปัญหา "ส่งข้อความไม่สำเร็จ (Failed to send messages)" :</span>
+                        </p>
+                        <p className="font-medium">
+                          หากลูกค้าเป็นเพื่อนของร้านคุณแล้วและไม่ได้บล็อก แต่ LINE API ยังตอบกลับปฏิเสธการส่งข้อความ สาเหตุที่แท้จริงเกิดจาก <span className="font-black text-rose-600">"รหัส LINE User ID ที่นำมาทดสอบนั้นเป็นของต่าง Provider กัน"</span> ค่ะ (LINE กำหนดให้รหัสลูกค้า U... เปลี่ยนแปลงไปตามบัญชีผู้พัฒนา หากใช้รหัสจากระบบอื่นหรือ URL แชทที่ไม่ได้เชื่อมต่อตรงกับ Channel ID นี้ บอทจะไม่รู้จักลูกค้ารายนี้ทันทีค่ะ)
+                        </p>
+                        
+                        <div className="space-y-1.5 pl-1">
+                          <p className="font-bold text-amber-900">🛠️ วิธีการที่แนะนำให้ลองเช็กและทดสอบดูใหม่ดังนี้ค่ะ:</p>
+                          <ul className="list-disc list-inside space-y-1 text-natural-espresso/70 font-medium pl-1">
+                            <li>
+                              <strong className="text-teal-800">ทดสอบผ่านระบบ Webhook (แม่นยำ 100%):</strong><br/>
+                              ให้แอดมินหรือตัวคุณเองเปิดโปรแกรม LINE บนมือถือของคุณ แอดไลน์ร้านค้า (LINE OA) แล้วลอง <strong className="text-rose-600">"พิมพ์ส่งเลขที่ออเดอร์ หรือพิมพ์เบอร์โทรศัพท์"</strong> เข้าไปในห้องแชทร้านค้าค่ะ 
+                            </li>
+                            <li>
+                              ระบบจะทำการประมวลผล Webhook และจะตอบกลับรายละเอียดออเดอร์ให้โดยอัตโนมัติ พร้อมทั้ง <strong className="text-emerald-700">"จับคู่และเซฟรหัส LINE User ID จริงที่ถูกต้อง 100% ของบอทตัวนี้"</strong> เข้าไปในออเดอร์ของลูกค้ารายนั้นให้ในระบบทันทีค่ะ!
+                            </li>
+                            <li>
+                              หลังจากนั้น ในหน้าแดชบอร์ดจัดการออเดอร์ คุณจะเห็นไอคอนและปุ่มแชทเป็นสีเขียว 🟢 และคุณจะสามารถกดส่งข้อความอัปเดตสถานะแบบอัตโนมัติได้อย่างสมบูรณ์แบบทันทีค่ะ
+                            </li>
+                          </ul>
+                        </div>
+
+                        <div className="bg-white/80 p-2.5 rounded-lg border border-amber-200/40 text-[9.5px] space-y-1">
+                          <p className="font-bold text-natural-espresso">🔗 การเปิดใช้งาน Webhook ใน LINE Developers Console:</p>
+                          <ol className="list-decimal list-inside space-y-0.5 text-natural-espresso/60 pl-1">
+                            <li>เข้าสู่หน้า <a href="https://developer.line.biz" target="_blank" rel="noopener noreferrer" className="text-teal-700 underline font-semibold">LINE Developers Console</a> ไปยัง Channel ของคุณ</li>
+                            <li>เข้าแท็บ <strong>Messaging API</strong> แล้วตรวจสอบในหัวข้อ <strong>Webhook URL</strong></li>
+                            <li>ใส่ลิงก์นี้เข้าไป: <code className="bg-teal-50 text-teal-800 px-1 py-0.5 rounded font-mono font-bold break-all">https://{window.location.host}/api/webhook/line</code> แล้วกด <strong>Update</strong> จากนั้นเปิดสวิตช์ <strong>Use webhook</strong> ให้เป็น <strong className="text-emerald-600">Enabled</strong></li>
+                            <li>ในหน้านั้น ให้กดปุ่ม <strong>Verify</strong> เพื่อทดสอบ หากขึ้นคำว่า <strong className="text-emerald-600">Success</strong> แสดงว่าระบบแชทออโตเมติกพร้อมทำงานแล้วค่ะ!</li>
+                          </ol>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
