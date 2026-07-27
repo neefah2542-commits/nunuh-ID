@@ -67,6 +67,11 @@ export default function OrderTracker({ orders, onUpdateOrderStatus, onDeleteOrde
   });
 
   const [lineConfig, setLineConfig] = useState<{ tokenSet: boolean; secretSet: boolean } | null>(null);
+  const [testLineUserId, setTestLineUserId] = useState('');
+  const [testStatus, setTestStatus] = useState<{ status: 'idle' | 'sending' | 'success' | 'error'; errorMsg: string }>({
+    status: 'idle',
+    errorMsg: ''
+  });
 
   useEffect(() => {
     fetch('/api/line-config-status')
@@ -221,6 +226,86 @@ export default function OrderTracker({ orders, onUpdateOrderStatus, onDeleteOrde
     };
   };
 
+  const parseLineError = (errMsgStr: string) => {
+    try {
+      const errorObj = typeof errMsgStr === 'string' ? JSON.parse(errMsgStr) : errMsgStr;
+      const message = errorObj.message || '';
+      const details = errorObj.details || [];
+      const detailsStr = details.map((d: any) => `${d.property || ''}: ${d.message || ''}`).join(', ');
+
+      if (message.includes('Failed to send messages')) {
+        return '❌ LINE ปฏิเสธการส่งข้อความ: "ผู้ใช้งานรายนี้อาจจะยังไม่ได้แอดไลน์ร้านค้าเป็นเพื่อน หรือผู้ใช้งานได้บล็อกไลน์ร้านค้าไว้" (Failed to send messages)';
+      }
+      if (message.includes("The property 'to' is invalid") || detailsStr.includes('Invalid user ID') || message.includes('Invalid user ID')) {
+        return '❌ รหัสผู้ใช้ผิดรูปแบบ หรือผู้ใช้นี้อยู่คนละผู้ให้บริการ (Invalid User ID): "โปรดตรวจสอบว่ารหัส LINE User ID ขึ้นต้นด้วยตัว U และตามด้วยตัวอักษร 32 ตัว เช่น Uf150dba359d90..."';
+      }
+      if (message.includes('Authentication failed') || message.includes('Invalid client credential') || message.includes('invalid client_id or client_secret')) {
+        return '❌ ไม่สามารถยืนยันตัวตนกับ LINE: "รหัส Channel Access Token ของทางร้านไม่ถูกต้อง หรือหมดอายุแล้ว" (Authentication Failed)';
+      }
+      if (message.includes('Access to this API is not authorized')) {
+        return '❌ สิทธิ์ใช้งาน API ถูกปฏิเสธ: "ช่องทางไลน์ (Channel) ของท่านยังไม่ได้เปิดใช้งานสิทธิ์ Messaging API หรือฟังก์ชัน Push Message" (403 Forbidden)';
+      }
+      return `❌ ข้อผิดพลาดจาก LINE API: "${message}" ${detailsStr ? `(${detailsStr})` : ''}`;
+    } catch (e) {
+      if (errMsgStr.includes('Failed to send messages')) {
+        return '❌ LINE ปฏิเสธการส่งข้อความ: "ผู้ใช้งานรายนี้อาจจะยังไม่ได้แอดไลน์ร้านค้าเป็นเพื่อน หรือผู้ใช้งานได้บล็อกไลน์ร้านค้าไว้" (Failed to send messages)';
+      }
+      if (errMsgStr.includes('to is invalid') || errMsgStr.includes('Invalid user ID')) {
+        return '❌ รหัสผู้ใช้ผิดรูปแบบ หรือผู้ใช้นี้อยู่คนละผู้ให้บริการ (Invalid User ID): "โปรดตรวจสอบว่ารหัส LINE User ID ขึ้นต้นด้วยตัว U และตามด้วยตัวอักษร 32 ตัว เช่น Uf150dba359d90..."';
+      }
+      if (errMsgStr.includes('Authentication failed') || errMsgStr.includes('Invalid client credential')) {
+        return '❌ ไม่สามารถยืนยันตัวตนกับ LINE: "รหัส Channel Access Token ของทางร้านไม่ถูกต้อง หรือหมดอายุแล้ว" (Authentication Failed)';
+      }
+      return `❌ ข้อผิดพลาดจากระบบ: "${errMsgStr}"`;
+    }
+  };
+
+  const handleTestSendLineMessage = async () => {
+    if (!testLineUserId.trim()) {
+      setTestStatus({ status: 'error', errorMsg: 'กรุณากรอก LINE User ID ที่ต้องการทดสอบก่อนค่ะ (รหัสขึ้นต้นด้วย U...)' });
+      return;
+    }
+    
+    const matches = testLineUserId.match(/U[0-9a-zA-Z]{32}/g);
+    let extractedId = '';
+    if (matches && matches.length > 0) {
+      extractedId = matches[matches.length - 1];
+    } else {
+      setTestStatus({ status: 'error', errorMsg: 'รหัส LINE User ID ไม่ถูกต้อง จะต้องขึ้นต้นด้วย U และตามด้วยตัวอักษร/ตัวเลข 32 ตัวค่ะ' });
+      return;
+    }
+
+    setTestStatus({ status: 'sending', errorMsg: '' });
+    try {
+      const testMsg = `🌸 [ข้อความทดสอบจากระบบ NUNUH Boutique] 🌸\n\nสวัสดีค่ะ! นี่คือข้อความส่งทดสอบความถูกต้องของระบบเชื่อมต่อ LINE Messaging API อัตโนมัติค่ะ หากคุณได้รับข้อความนี้ แสดงว่าการเชื่อมต่อระบบเสร็จสมบูรณ์ 100% แล้วค่ะ! 🎉`;
+      const response = await fetch('/api/send-status', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: extractedId,
+          message: testMsg
+        })
+      });
+
+      const data = await response.json();
+      if (response.ok) {
+        if (data.simulated) {
+          setTestStatus({ 
+            status: 'error', 
+            errorMsg: '⚠️ ระบบทำงานในโหมดจำลองเนื่องจากยังไม่ได้ตั้งค่า Channel Access Token ใน Environment Variables ค่ะ' 
+          });
+        } else {
+          setTestStatus({ status: 'success', errorMsg: '' });
+        }
+      } else {
+        const rawErr = data.error || 'เกิดข้อผิดพลาดไม่ทราบสาเหตุ';
+        setTestStatus({ status: 'error', errorMsg: parseLineError(rawErr) });
+      }
+    } catch (err: any) {
+      setTestStatus({ status: 'error', errorMsg: `เกิดข้อผิดพลาดในการเชื่อมต่อเซิร์ฟเวอร์: ${err.message || err}` });
+    }
+  };
+
   const getDirectOaUrl = (order: Order, lineUserId: string) => {
     const rawUserId = order.lineUserId?.trim() || '';
     if (rawUserId.startsWith('http://') || rawUserId.startsWith('https://')) {
@@ -344,10 +429,12 @@ export default function OrderTracker({ orders, onUpdateOrderStatus, onDeleteOrde
           // หาก API เกิดความผิดพลาด ให้คัดลอกและเปิดหน้าแชทของลูกค้ารายนั้นโดยตรงเพื่อให้แอดมินกดวางส่งเอง
           const errData = await response.json().catch(() => ({}));
           const errMsg = errData.error || "ไม่ได้เปิดระบบเชื่อมต่อบอท API";
+          const userFriendlyError = parseLineError(errMsg);
           alert(
-            `📋 คัดลอกข้อความสถานะเรียบร้อยแล้วค่ะ!\n` +
-            `(ระบบแจ้งเตือนอัตโนมัติขัดข้อง: ${errMsg})\n\n` +
-            `ระบบจะนำท่านไปยังห้องแชทลูกค้าโดยตรงในระบบ LINE OA Manager เพื่อให้คุณแชทและนำข้อความวาง (Paste) ส่งคุยต่อได้ทันทีค่ะ 💬`
+            `📋 ระบบได้คัดลอกข้อความสถานะลงคลิปบอร์ดให้แล้วค่ะ!\n\n` +
+            `⚠️ ระบบการส่งแชทอัตโนมัติแจ้งว่า:\n` +
+            `${userFriendlyError}\n\n` +
+            `ระบบจะนำท่านไปยังห้องแชทของ คุณ ${order.customerName} บนระบบ LINE OA Manager ทันที เพื่อให้คุณกดวาง (Paste/Ctrl+V) และส่งข้อความคุยต่อได้โดยไม่ต้องเสียเวลาคีย์ใหม่ค่ะ 💬`
           );
           window.open(directOaUrl, '_blank');
         }
@@ -742,6 +829,46 @@ export default function OrderTracker({ orders, onUpdateOrderStatus, onDeleteOrde
                   </ol>
                 </div>
               )}
+
+              {/* Test Message Sending Section */}
+              <div className="bg-white p-3.5 rounded-xl border border-teal-100/50 mt-2 space-y-2.5">
+                <div className="flex items-center gap-1.5 text-[11px] font-bold text-teal-800">
+                  <span>🧪 ทดสอบระบบส่งข้อความเข้า LINE (Test API)</span>
+                </div>
+                <p className="text-[10px] text-natural-espresso/60 leading-relaxed">
+                  คุณสามารถนำรหัส LINE User ID ของคุณเอง (รหัส U...) หรือของลูกค้ามาวางเพื่อกดส่งทดสอบ เพื่อเช็กว่า LINE Messaging API ของคุณทำงานได้ถูกต้องหรือไม่ค่ะ
+                </p>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={testLineUserId}
+                    onChange={(e) => setTestLineUserId(e.target.value)}
+                    placeholder="วางรหัสผู้ใช้ เช่น Uf150dba359d90219f8d5ff1826f470df"
+                    className="flex-1 text-xs px-3 py-2 rounded-lg border border-natural-wheat bg-natural-cream/5 font-mono focus:outline-none focus:ring-1 focus:ring-teal-500"
+                  />
+                  <button
+                    onClick={handleTestSendLineMessage}
+                    disabled={testStatus.status === 'sending'}
+                    className={`text-xs px-4 py-2 font-bold rounded-lg text-white shrink-0 transition-colors ${
+                      testStatus.status === 'sending'
+                        ? 'bg-natural-espresso/40 cursor-not-allowed'
+                        : 'bg-teal-600 hover:bg-teal-700'
+                    }`}
+                  >
+                    {testStatus.status === 'sending' ? 'กำลังส่ง...' : 'ส่งข้อความทดสอบ 🚀'}
+                  </button>
+                </div>
+                {testStatus.status === 'success' && (
+                  <div className="p-2.5 bg-emerald-50 text-emerald-700 text-[10.5px] rounded-lg border border-emerald-200 font-medium">
+                    🎉 สำเร็จ! ข้อความทดสอบถูกส่งเข้า LINE เรียบร้อยแล้วค่ะ! ระบบการส่งข้อความอัตโนมัติทำงาน 100% แล้วค่ะ
+                  </div>
+                )}
+                {testStatus.status === 'error' && (
+                  <div className="p-2.5 bg-rose-50 text-rose-700 text-[10.5px] rounded-lg border border-rose-200 font-medium whitespace-pre-wrap leading-relaxed">
+                    {testStatus.errorMsg}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
 
