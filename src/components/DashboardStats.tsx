@@ -25,6 +25,7 @@ interface DashboardStatsProps {
 }
 
 export default function DashboardStats({ orders, onSelectTab }: DashboardStatsProps) {
+  const [isKpiExpanded, setIsKpiExpanded] = useState(true);
   const [isBreakdownExpanded, setIsBreakdownExpanded] = useState(true);
 
   // สถิติทั้งหมด
@@ -195,101 +196,125 @@ export default function DashboardStats({ orders, onSelectTab }: DashboardStatsPr
 
   return (
     <div className="space-y-6 mb-8">
-      {/* 1. KPI Stats Cards Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {stats.map((stat) => {
-          const IconComponent = stat.icon;
-          return (
-            <div 
-              key={stat.id}
-              id={stat.id}
-              className={`p-5 rounded-2xl border transition-all duration-300 hover:shadow-md flex flex-col justify-between ${stat.color}`}
-              style={{
-                height: '200px',
-                width: stat.id === 'stat-total' ? '289px' : undefined
-              }}
-            >
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm font-medium opacity-80">{stat.label}</span>
-                  <IconComponent className="h-5 w-5 opacity-80" />
-                </div>
-                <h3 className="text-2xl font-serif font-bold tracking-tight mb-1">{stat.value}</h3>
-                <p className="text-xs opacity-75 mb-1">{stat.description}</p>
+      {/* Top Header & Toggle Bar for KPI Stats */}
+      <div className="flex items-center justify-between px-1">
+        <div className="flex items-center space-x-2">
+          <ShoppingBag className="h-5 w-5 text-natural-clay" />
+          <h3 className="text-sm font-bold text-natural-espresso font-serif">
+            ภาพรวมสถิติออเดอร์ (Overview Statistics)
+          </h3>
+        </div>
+        <button
+          type="button"
+          onClick={() => setIsKpiExpanded(!isKpiExpanded)}
+          className="flex items-center space-x-1.5 text-xs text-natural-espresso/70 hover:text-natural-clay font-bold bg-white/80 hover:bg-white px-3.5 py-1.5 rounded-xl border border-natural-wheat/60 shadow-2xs transition-all cursor-pointer"
+        >
+          <span>{isKpiExpanded ? 'ย่อแผงข้อมูล' : 'ขยายแผงข้อมูล'}</span>
+          {isKpiExpanded ? (
+            <ChevronUp className="h-4 w-4 text-natural-clay" />
+          ) : (
+            <ChevronDown className="h-4 w-4 text-natural-clay" />
+          )}
+        </button>
+      </div>
 
-                {/* สรุปยอดเงินด่วนแยกช่องทาง บรรจุลงภายในการ์ดมูลค่ารวมเลย */}
-                {stat.id === "stat-revenue" && (
-                  <div className="mt-3 pt-3 border-t border-natural-ochre/20 space-y-2 text-[11px] font-sans">
-                    <div className="flex justify-between items-center text-natural-espresso/90">
-                      <span className="flex items-center gap-1.5 font-medium">
-                        <Smartphone className="h-3 w-3 text-natural-sage" /> เงินโอน:
-                      </span>
-                      <span className="font-bold text-natural-sage">
-                        {transferDeposit.toLocaleString()} ฿
-                        <span className="font-normal opacity-60 text-[10px] ml-1">({transferRevenue.toLocaleString()})</span>
-                      </span>
-                    </div>
-                    <div className="flex justify-between items-center text-natural-espresso/90">
-                      <span className="flex items-center gap-1.5 font-medium">
-                        <Coins className="h-3 w-3 text-natural-clay" /> เงินสด:
-                      </span>
-                      <span className="font-bold text-natural-clay">
-                        {cashDeposit.toLocaleString()} ฿
-                        <span className="font-normal opacity-60 text-[10px] ml-1">({cashRevenue.toLocaleString()})</span>
-                      </span>
-                    </div>
-                    <div className="flex justify-between items-center text-natural-espresso/90">
-                      <span className="flex items-center gap-1.5 font-medium">
-                        <CreditCard className="h-3 w-3 text-natural-ochre" /> บัตรเครดิต:
-                      </span>
-                      <span className="font-bold text-natural-ochre">
-                        {creditDeposit.toLocaleString()} ฿
-                        <span className="font-normal opacity-60 text-[10px] ml-1">({creditRevenue.toLocaleString()})</span>
-                      </span>
-                    </div>
-                    {otherDeposit > 0 && (
-                      <div className="flex justify-between items-center text-natural-espresso/75 italic">
-                        <span className="flex items-center gap-1.5">
-                          <Wallet className="h-3 w-3 opacity-60" /> อื่นๆ:
+      {/* 1. KPI Stats Cards Grid */}
+      {isKpiExpanded && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 animate-fadeIn">
+          {stats.map((stat) => {
+            const IconComponent = stat.icon;
+            return (
+              <div 
+                key={stat.id}
+                id={stat.id}
+                className={`p-5 rounded-2xl border transition-all duration-300 hover:shadow-md flex flex-col justify-between ${stat.color}`}
+                style={{
+                  height: stat.id === 'stat-revenue' ? '190px' : '180px',
+                  ...(stat.id === 'stat-revenue' ? { fontSize: '16px' } : {})
+                }}
+              >
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm font-medium opacity-80">{stat.label}</span>
+                    <IconComponent className="h-5 w-5 opacity-80" />
+                  </div>
+                  <h3 className="text-2xl font-serif font-bold tracking-tight mb-1">{stat.value}</h3>
+                  <p className="text-xs opacity-75 mb-1">{stat.description}</p>
+
+                  {/* สรุปยอดเงินด่วนแยกช่องทาง บรรจุลงภายในการ์ดมูลค่ารวมเลย */}
+                  {stat.id === "stat-revenue" && (
+                    <div className="mt-3 pt-3 border-t border-natural-ochre/20 space-y-2 text-[11px] font-sans">
+                      <div className="flex justify-between items-center text-natural-espresso/90">
+                        <span className="flex items-center gap-1.5 font-medium">
+                          <Smartphone className="h-3 w-3 text-natural-sage" /> เงินโอน:
                         </span>
-                        <span className="font-semibold text-natural-espresso/80">
-                          {otherDeposit.toLocaleString()} ฿
-                          <span className="font-normal opacity-60 text-[10px] ml-1">({otherRevenue.toLocaleString()})</span>
+                        <span className="font-bold text-natural-sage">
+                          {transferDeposit.toLocaleString()} ฿
+                          <span className="font-normal opacity-60 text-[10px] ml-1">({transferRevenue.toLocaleString()})</span>
                         </span>
                       </div>
-                    )}
-                  </div>
-                )}
+                      <div className="flex justify-between items-center text-natural-espresso/90">
+                        <span className="flex items-center gap-1.5 font-medium">
+                          <Coins className="h-3 w-3 text-natural-clay" /> เงินสด:
+                        </span>
+                        <span className="font-bold text-natural-clay">
+                          {cashDeposit.toLocaleString()} ฿
+                          <span className="font-normal opacity-60 text-[10px] ml-1">({cashRevenue.toLocaleString()})</span>
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center text-natural-espresso/90">
+                        <span className="flex items-center gap-1.5 font-medium">
+                          <CreditCard className="h-3 w-3 text-natural-ochre" /> บัตรเครดิต:
+                        </span>
+                        <span className="font-bold text-natural-ochre">
+                          {creditDeposit.toLocaleString()} ฿
+                          <span className="font-normal opacity-60 text-[10px] ml-1">({creditRevenue.toLocaleString()})</span>
+                        </span>
+                      </div>
+                      {otherDeposit > 0 && (
+                        <div className="flex justify-between items-center text-natural-espresso/75 italic">
+                          <span className="flex items-center gap-1.5">
+                            <Wallet className="h-3 w-3 opacity-60" /> อื่นๆ:
+                          </span>
+                          <span className="font-semibold text-natural-espresso/80">
+                            {otherDeposit.toLocaleString()} ฿
+                            <span className="font-normal opacity-60 text-[10px] ml-1">({otherRevenue.toLocaleString()})</span>
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+                <button 
+                  onClick={stat.onClick}
+                  className="mt-4 text-xs font-medium underline underline-offset-4 text-left hover:opacity-80 transition-all cursor-pointer"
+                >
+                  {stat.actionLabel} &rarr;
+                </button>
               </div>
-              <button 
-                onClick={stat.onClick}
-                className="mt-4 text-xs font-medium underline underline-offset-4 text-left hover:opacity-80 transition-all cursor-pointer"
-              >
-                {stat.actionLabel} &rarr;
-              </button>
-            </div>
-          );
-        })}
-      </div>
+            );
+          })}
+        </div>
+      )}
 
       {/* 2. Sleek Interactive Payment Breakdown Panel */}
       <div className="bg-natural-sand/20 border border-natural-wheat rounded-2xl p-5 transition-all duration-300">
         <div 
           onClick={() => setIsBreakdownExpanded(!isBreakdownExpanded)}
-          className="flex items-center justify-between cursor-pointer select-none"
+          className="flex items-center justify-between cursor-pointer select-none group"
         >
           <div className="flex items-center space-x-2">
             <TrendingUp className="h-5 w-5 text-natural-clay" />
-            <h4 className="text-sm font-bold text-natural-espresso font-serif">
+            <h4 className="text-sm font-bold text-natural-espresso font-serif group-hover:text-natural-clay transition-colors">
               สรุปยอดรับเงินแยกตามช่องทางการชำระ (Payment Summary)
             </h4>
           </div>
-          <div className="flex items-center space-x-2 text-xs text-natural-espresso/60 font-medium">
-            <span>{isBreakdownExpanded ? 'ย่อแผงข้อมูล' : 'ขยายข้อมูล'}</span>
+          <div className="flex items-center space-x-1.5 text-xs text-natural-espresso/70 group-hover:text-natural-clay font-bold bg-white/80 group-hover:bg-white px-3.5 py-1.5 rounded-xl border border-natural-wheat/60 shadow-2xs transition-all">
+            <span>{isBreakdownExpanded ? 'ย่อแผงข้อมูล' : 'ขยายแผงข้อมูล'}</span>
             {isBreakdownExpanded ? (
-              <ChevronUp className="h-4 w-4 text-natural-espresso/50" />
+              <ChevronUp className="h-4 w-4 text-natural-clay" />
             ) : (
-              <ChevronDown className="h-4 w-4 text-natural-espresso/50" />
+              <ChevronDown className="h-4 w-4 text-natural-clay" />
             )}
           </div>
         </div>

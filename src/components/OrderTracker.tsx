@@ -1123,7 +1123,12 @@ export default function OrderTracker({ orders, catalogue = [], onUpdateOrderStat
                       </p>
                       <p className="text-[10px] font-medium text-natural-espresso/60">
                         {(() => {
-                          const diff = Math.ceil((new Date(order.deliveryDate).getTime() - new Date("2026-07-02").getTime()) / (1000 * 3600 * 24));
+                          const todayStart = new Date();
+                          todayStart.setHours(0, 0, 0, 0);
+                          const delDate = new Date(order.deliveryDate);
+                          delDate.setHours(0, 0, 0, 0);
+                          const diff = Math.round((delDate.getTime() - todayStart.getTime()) / (1000 * 3600 * 24));
+
                           if (order.status === OrderStatus.COMPLETED) return "✨ ส่งมอบสำเร็จแล้ว";
                           if (diff === 0) return "🚨 ส่งมอบวันนี้!";
                           if (diff < 0) return `⚠️ เกินกำหนดส่ง ${Math.abs(diff)} วัน`;

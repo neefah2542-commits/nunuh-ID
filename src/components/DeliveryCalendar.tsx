@@ -23,22 +23,30 @@ interface DeliveryCalendarProps {
 }
 
 export default function DeliveryCalendar({ orders, onUpdateOrderStatus }: DeliveryCalendarProps) {
-  // วันที่อ้างอิงเริ่มต้นของระบบคือ 2026-07-02
-  const [currentYear, setCurrentYear] = useState(2026);
-  const [currentMonth, setCurrentMonth] = useState(6); // 6 = กรกฎาคม (0-indexed: 0 = ม.ค., 6 = ก.ค.)
-  const [selectedDateStr, setSelectedDateStr] = useState<string | null>("2026-07-04"); // เริ่มที่วันจัดส่งที่ใกล้ที่สุด
+  // วันที่และเวลาปัจจุบันเรียลไทม์ (Real-Time System Date)
+  const today = new Date();
+  const todayYear = today.getFullYear();
+  const todayMonth = today.getMonth(); // 0-indexed: 0 = ม.ค.
+  const todayDate = today.getDate();
+
+  const [currentYear, setCurrentYear] = useState(todayYear);
+  const [currentMonth, setCurrentMonth] = useState(todayMonth);
+  const [selectedDateStr, setSelectedDateStr] = useState<string | null>(() => {
+    const y = todayYear;
+    const m = String(todayMonth + 1).padStart(2, '0');
+    const d = String(todayDate).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  });
 
   const monthNamesThai = [
     "มกราคม", "กุมภาพันธ์", "มีนาคม", "เมษายน", "พฤษภาคม", "มิถุนายน",
     "กรกฎาคม", "สิงหาคม", "กันยายน", "ตุลาคม", "พฤศจิกายน", "ธันวาคม"
   ];
 
-  // จำนวนวันในแต่ละเดือนของปี 2026 (ปีปกติสุรทิน)
-  const daysInMonths = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
-
   // วันแรกของเดือนเริ่มที่วันไหน (0 = อาทิตย์, 1 = จันทร์, ..., 6 = เสาร์)
   const firstDayOfMonth = new Date(currentYear, currentMonth, 1).getDay();
-  const totalDays = daysInMonths[currentMonth];
+  // คำนวณจำนวนวันในเดือนนั้นๆ แบบ dynamic รองรับปีอธิกสุรทิน
+  const totalDays = new Date(currentYear, currentMonth + 1, 0).getDate();
 
   const handlePrevMonth = () => {
     if (currentMonth === 0) {
@@ -139,8 +147,8 @@ export default function DeliveryCalendar({ orders, onUpdateOrderStatus }: Delive
             const hasDeliveries = dayOrders.length > 0;
             const isSelected = selectedDateStr === dateStr;
 
-            // ตรวจสอบว่าเป็นวันปัจจุบันจำลอง (2 ก.ค. 2026) หรือไม่
-            const isTodaySimulated = currentYear === 2026 && currentMonth === 6 && dayNum === 2;
+            // ตรวจสอบว่าเป็นวันปัจจุบันจริงแบบ Real-time หรือไม่
+            const isTodayReal = currentYear === todayYear && currentMonth === todayMonth && dayNum === todayDate;
 
             return (
               <div
@@ -158,8 +166,8 @@ export default function DeliveryCalendar({ orders, onUpdateOrderStatus }: Delive
                 } ${
                   isSelected
                     ? 'border-natural-espresso bg-natural-espresso text-natural-cream shadow-md ring-2 ring-natural-espresso/5'
-                    : isTodaySimulated
-                      ? 'border-natural-clay bg-natural-sand text-natural-espresso font-semibold'
+                    : isTodayReal
+                      ? 'border-natural-clay bg-rose-50/90 text-natural-espresso font-semibold ring-2 ring-natural-clay/30'
                       : hasDeliveries
                         ? 'border-natural-clay/35 bg-natural-cream/35 hover:border-natural-clay/80 hover:bg-natural-cream/55'
                         : 'border-natural-wheat/40 bg-natural-cream/10 text-natural-espresso/80 hover:border-natural-wheat/60'
@@ -168,13 +176,13 @@ export default function DeliveryCalendar({ orders, onUpdateOrderStatus }: Delive
                 {/* Date indicator */}
                 <div className="flex items-center justify-between">
                   <span className={`text-xs font-bold ${
-                    isTodaySimulated && !isSelected ? 'text-natural-clay underline font-extrabold' : ''
+                    isTodayReal && !isSelected ? 'text-natural-clay underline font-extrabold' : ''
                   }`}>
                     {dayNum}
                   </span>
                   
-                  {isTodaySimulated && (
-                    <span className="text-[8px] bg-natural-clay text-white px-1 py-0.2 rounded font-bold uppercase tracking-wider">
+                  {isTodayReal && (
+                    <span className="text-[8px] bg-natural-clay text-white px-1 py-0.2 rounded font-bold uppercase tracking-wider shadow-xs">
                       วันนี้
                     </span>
                   )}
@@ -277,7 +285,13 @@ export default function DeliveryCalendar({ orders, onUpdateOrderStatus }: Delive
             </div>
           ) : (
             activeDeliveries.map((order, idx) => {
-              const diffDays = Math.ceil((new Date(order.deliveryDate).getTime() - new Date("2026-07-02").getTime()) / (1000 * 3600 * 24));
+              const todayStart = new Date();
+              todayStart.setHours(0, 0, 0, 0);
+
+              const delDate = new Date(order.deliveryDate);
+              delDate.setHours(0, 0, 0, 0);
+
+              const diffDays = Math.round((delDate.getTime() - todayStart.getTime()) / (1000 * 3600 * 24));
               let badgeColor = "bg-natural-sand text-natural-espresso/70 border-natural-wheat";
               let timeText = `อีก ${diffDays} วัน`;
 
@@ -287,6 +301,9 @@ export default function DeliveryCalendar({ orders, onUpdateOrderStatus }: Delive
               } else if (diffDays === 1) {
                 badgeColor = "bg-natural-sand text-natural-clay border-natural-clay/30";
                 timeText = "⚠️ พรุ่งนี้!";
+              } else if (diffDays < 0) {
+                badgeColor = "bg-rose-100 text-rose-700 border-rose-300 font-bold";
+                timeText = `⚠️ เกินกำหนด ${Math.abs(diffDays)} วัน`;
               } else if (diffDays <= 3) {
                 badgeColor = "bg-natural-sand text-natural-ochre border-natural-ochre/30";
               }

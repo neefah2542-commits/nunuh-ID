@@ -426,7 +426,9 @@ export default function OrderForm({
     setWrist("6.5");
     setPrice("4500");
     setDeposit("2250");
-    setDeliveryDate("2026-07-25");
+    const demoDeliveryDate = new Date();
+    demoDeliveryDate.setDate(demoDeliveryDate.getDate() + 7);
+    setDeliveryDate(demoDeliveryDate.toISOString().split('T')[0]);
     setNotes("ต้องการซับในหนานุ่มพิเศษ และผ่าปลายแขนใส่กระดุมปั๊มทอง");
   };
 
