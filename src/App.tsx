@@ -755,7 +755,7 @@ export default function App() {
                 </h1>
                 <p className="text-[9px] font-bold tracking-widest text-natural-espresso/50 uppercase">
                   {isCustomerMode 
-                    ? 'CUSTOMER HUB • SECURE PORTAL' 
+                    ? 'CUSTOMER HUB • SERVICE PORTAL' 
                     : isStaffMode 
                     ? 'STAFF PORTAL • ORDER & RECOMMEND ONLY' 
                     : 'ATELIER & COUTURE ORDER SYSTEM'}

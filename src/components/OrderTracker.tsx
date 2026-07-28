@@ -334,7 +334,7 @@ export default function OrderTracker({ orders, catalogue = [], onUpdateOrderStat
       month: 'long',
       year: 'numeric'
     });
-    const portalUrl = `${publicUrl}?tab=customer&search=${order.customerPhone}${order.lineUserId ? `&lineUserId=${order.lineUserId}` : ''}&mode=customer`;
+    const portalUrl = `${publicUrl}?tab=customer&search=${encodeURIComponent(order.customerPhone)}&mode=customer`;
     const message = `⚜️ อัปเดตสถานะชุดสั่งตัด NUNUH Boutique ⚜️\n\nเรียนคุณ: ${order.customerName}\nรหัสออเดอร์: ${order.orderNumber}\nประเภทชุด: ${order.dressType}\n\n📍 สถานะปัจจุบัน: [${currentStatusCfg.label}]\n➡️ "${currentStatusCfg.description}"\n\n📅 กำหนดส่งมอบ: ${formattedDelivery}\n\nท่านสามารถตรวจสอบข้อมูลสัดส่วนและติดตามความคืบหน้าแบบละเอียดด้วยตนเองได้ที่นี่:\n🔗 ${portalUrl}\n\nขอขอบพระคุณที่เลือกใช้บริการค่ะ ✨`;
 
     // 1. คัดลอกข้อความลง Clipboard อัตโนมัติ เพื่อให้แอดมินนำไปวางกดส่งได้ทันที
@@ -394,7 +394,7 @@ export default function OrderTracker({ orders, catalogue = [], onUpdateOrderStat
       month: 'long',
       year: 'numeric'
     });
-    const portalUrl = `${publicUrl}?tab=customer&search=${order.customerPhone}${order.lineUserId ? `&lineUserId=${order.lineUserId}` : ''}&mode=customer`;
+    const portalUrl = `${publicUrl}?tab=customer&search=${encodeURIComponent(order.customerPhone)}&mode=customer`;
     const message = `⚜️ อัปเดตสถานะชุดสั่งตัด NUNUH Boutique ⚜️\n\nเรียนคุณ: ${order.customerName}\nรหัสออเดอร์: ${order.orderNumber}\nประเภทชุด: ${order.dressType}\n\n📍 สถานะปัจจุบัน: [${currentStatusCfg.label}]\n➡️ "${currentStatusCfg.description}"\n\n📅 กำหนดส่งมอบ: ${formattedDelivery}\n\nท่านสามารถตรวจสอบข้อมูลสัดส่วนและติดตามความคืบหน้าแบบละเอียดด้วยตนเองได้ที่นี่:\n🔗 ${portalUrl}\n\nขอขอบพระคุณที่เลือกใช้บริการค่ะ ✨`;
 
     // คัดลอกลงคลิปบอร์ดก่อนเสมอ เพื่อกันข้อผิดพลาดและอำนวยความสะดวก
@@ -1654,7 +1654,7 @@ export default function OrderTracker({ orders, catalogue = [], onUpdateOrderStat
                                   month: 'long',
                                   year: 'numeric'
                                 });
-                                const portalUrl = `${publicUrl}?tab=customer&search=${order.customerPhone}${order.lineUserId ? `&lineUserId=${order.lineUserId}` : ''}&mode=customer`;
+                                const portalUrl = `${publicUrl}?tab=customer&search=${encodeURIComponent(order.customerPhone)}&mode=customer`;
                                 const message = `⚜️ อัปเดตสถานะชุดสั่งตัด NUNUH Boutique ⚜️\n\nเรียนคุณ: ${order.customerName}\nรหัสออเดอร์: ${order.orderNumber}\nประเภทชุด: ${order.dressType}\n\n📍 สถานะปัจจุบัน: [${currentStatusCfg.label}]\n➡️ "${currentStatusCfg.description}"\n\n📅 กำหนดส่งมอบ: ${formattedDelivery}\n\nท่านสามารถตรวจสอบข้อมูลสัดส่วนและติดตามความคืบหน้าแบบละเอียดด้วยตนเองได้ที่นี่:\n🔗 ${portalUrl}\n\nขอขอบพระคุณที่เลือกใช้บริการค่ะ ✨`;
                                 
                                 navigator.clipboard.writeText(message);
