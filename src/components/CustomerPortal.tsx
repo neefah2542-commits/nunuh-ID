@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Order, OrderStatus, CatalogueItem, STATUS_MAP, Measurements, STANDARD_SIZE_CHART, CustomerReview } from '../types';
 import { 
   Search, 
@@ -273,73 +273,17 @@ export default function CustomerPortal({
     }
   };
 
-  // Auto-search if search param is provided in URL
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const urlSearchParam = params.get('search');
-    const urlPhoneParam = params.get('phone');
-    const queryToUse = urlSearchParam || urlPhoneParam || '';
-
-    if (queryToUse) {
-      setSearchQuery(queryToUse);
-      const query = queryToUse.trim().toLowerCase();
-      const queryDigits = query.replace(/\D/g, '');
-      const cleanQuery = query.replace(/[\s-()]/g, '');
-
-      const matched = orders.filter(order => {
-        const phoneDigits = (order.customerPhone || '').replace(/\D/g, '');
-        const cleanPhone = (order.customerPhone || '').replace(/[\s-()]/g, '');
-        const orderNum = (order.orderNumber || '').toLowerCase();
-        const customerName = (order.customerName || '').toLowerCase();
-        const sku = (order.sku || '').toLowerCase();
-
-        const matchesPhone = 
-          (queryDigits.length >= 4 && (phoneDigits.includes(queryDigits) || queryDigits.includes(phoneDigits))) ||
-          (cleanQuery.length >= 4 && cleanPhone.includes(cleanQuery));
-        const matchesOrderNum = orderNum.includes(query);
-        const matchesName = customerName.includes(query);
-        const matchesSku = sku.includes(query);
-
-        return matchesPhone || matchesOrderNum || matchesName || matchesSku;
-      });
-
-      if (matched.length > 0) {
-        const matchedPhones = new Set(matched.map(o => (o.customerPhone || '').replace(/\D/g, '')));
-        const matchedNames = new Set(matched.map(o => (o.customerName || '').trim().toLowerCase()));
-
-        const allMatchedOrders = orders.filter(o => {
-          const pDigits = (o.customerPhone || '').replace(/\D/g, '');
-          const cName = (o.customerName || '').trim().toLowerCase();
-          return (pDigits && matchedPhones.has(pDigits)) || (cName && matchedNames.has(cName));
-        });
-        setSearchedOrders(allMatchedOrders);
-      } else {
-        setSearchedOrders([]);
-      }
-      setHasSearched(true);
-    } else {
-      setSearchedOrders(null);
-      setHasSearched(false);
-      setSearchQuery('');
-    }
-  }, [orders]);
-
-  // Handle Search Orders
-  const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault();
-
-    const query = searchQuery.trim().toLowerCase();
+  // Helper function to search across orders
+  const performSearch = (queryStr: string, allOrders: Order[]) => {
+    const query = queryStr.trim().toLowerCase();
     const queryDigits = query.replace(/\D/g, '');
     const cleanQuery = query.replace(/[\s-()]/g, '');
 
     if (!query) {
-      setSearchedOrders(null);
-      setHasSearched(false);
-      return;
+      return { matchedOrders: null, searched: false };
     }
 
-    // Search across ALL orders in system
-    const matched = orders.filter(order => {
+    const matched = allOrders.filter(order => {
       const phoneDigits = (order.customerPhone || '').replace(/\D/g, '');
       const cleanPhone = (order.customerPhone || '').replace(/[\s-()]/g, '');
       const orderNum = (order.orderNumber || '').toLowerCase();
@@ -347,8 +291,8 @@ export default function CustomerPortal({
       const sku = (order.sku || '').toLowerCase();
 
       const matchesPhone = 
-        (queryDigits.length >= 4 && (phoneDigits.includes(queryDigits) || queryDigits.includes(phoneDigits))) ||
-        (cleanQuery.length >= 4 && cleanPhone.includes(cleanQuery));
+        (queryDigits.length >= 3 && (phoneDigits.includes(queryDigits) || queryDigits.includes(phoneDigits))) ||
+        (cleanQuery.length >= 3 && cleanPhone.includes(cleanQuery));
       const matchesOrderNum = orderNum.includes(query);
       const matchesName = customerName.includes(query);
       const matchesSku = sku.includes(query);
@@ -360,20 +304,70 @@ export default function CustomerPortal({
       const matchedPhones = new Set(matched.map(o => (o.customerPhone || '').replace(/\D/g, '')));
       const matchedNames = new Set(matched.map(o => (o.customerName || '').trim().toLowerCase()));
 
-      const allCustomerOrders = orders.filter(o => {
+      const allCustomerOrders = allOrders.filter(o => {
         const pDigits = (o.customerPhone || '').replace(/\D/g, '');
         const cName = (o.customerName || '').trim().toLowerCase();
         return (pDigits && matchedPhones.has(pDigits)) || (cName && matchedNames.has(cName));
       });
 
-      setSearchedOrders(allCustomerOrders);
-      setHasSearched(true);
+      return { matchedOrders: allCustomerOrders, searched: true };
+    }
+
+    return { matchedOrders: [], searched: true };
+  };
+
+  // Flag to ensure URL parameter search only sets state on initial mount
+  const isInitialUrlCheckDone = useRef(false);
+
+  // Initial check from URL search parameters on mount & sync background order updates
+  useEffect(() => {
+    if (!isInitialUrlCheckDone.current) {
+      const params = new URLSearchParams(window.location.search);
+      const urlSearchParam = params.get('search');
+      const urlPhoneParam = params.get('phone');
+      const queryToUse = urlSearchParam || urlPhoneParam || '';
+
+      if (queryToUse) {
+        setSearchQuery(queryToUse);
+        const { matchedOrders, searched } = performSearch(queryToUse, orders);
+        setSearchedOrders(matchedOrders);
+        setHasSearched(searched);
+      }
+      isInitialUrlCheckDone.current = true;
+    } else if (hasSearched && searchQuery.trim()) {
+      // Background order update (e.g. server poll): re-sync searched orders without wiping searchQuery
+      const { matchedOrders } = performSearch(searchQuery, orders);
+      setSearchedOrders(matchedOrders);
+    }
+  }, [orders]);
+
+  // Handle Search Input Change with live search
+  const handleSearchInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value;
+    setSearchQuery(val);
+
+    if (!val.trim()) {
+      setSearchedOrders(null);
+      setHasSearched(false);
       return;
     }
 
-    // No matching order found
-    setSearchedOrders([]);
-    setHasSearched(true);
+    const { matchedOrders, searched } = performSearch(val, orders);
+    setSearchedOrders(matchedOrders);
+    setHasSearched(searched);
+  };
+
+  // Handle Search Form Submit
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!searchQuery.trim()) {
+      setSearchedOrders(null);
+      setHasSearched(false);
+      return;
+    }
+    const { matchedOrders, searched } = performSearch(searchQuery, orders);
+    setSearchedOrders(matchedOrders);
+    setHasSearched(searched);
   };
 
   // Handle Customer Review Image Upload
@@ -499,7 +493,7 @@ export default function CustomerPortal({
               type="text"
               placeholder="ป้อนเบอร์มือถือ หรือ หมายเลขคิวออเดอร์ เพื่อค้นหา..."
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={handleSearchInputChange}
               className="w-full text-sm pl-12 pr-4 py-3.5 rounded-xl border border-natural-wheat focus:outline-none focus:ring-2 focus:ring-natural-clay/20 focus:border-natural-clay bg-natural-cream/15 text-natural-espresso font-medium"
             />
           </div>
