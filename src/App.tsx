@@ -639,6 +639,17 @@ export default function App() {
     return `NU-${maxNum + 1}`;
   };
 
+  // ฟังก์ชันกลับสู่หน้าแรกระบบจัดการห้องเสื้อ (Home / Tracker Dashboard)
+  const handleGoHome = () => {
+    setIsCustomerMode(false);
+    setIsStaffMode(false);
+    localStorage.removeItem('nunuh_user_mode');
+    setActiveTab('tracker');
+    if (window.history && window.history.pushState) {
+      window.history.pushState({}, '', window.location.pathname);
+    }
+  };
+
   return (
     <div className={`min-h-screen bg-natural-cream text-natural-espresso pb-16 font-sans transition-colors duration-300 ${theme === 'sand' ? '' : `theme-${theme}`}`}>
       
@@ -647,13 +658,17 @@ export default function App() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-20">
             
-            {/* Elegant Logo Group */}
-            <div className={`flex items-center space-x-3.5 ${isCustomerMode ? 'mx-auto' : ''}`}>
-              <div className="h-11 w-11 rounded-2xl bg-natural-espresso flex items-center justify-center text-natural-cream shadow-sm">
+            {/* Elegant Logo Group (Click to Home) */}
+            <div 
+              onClick={handleGoHome}
+              className="flex items-center space-x-3.5 cursor-pointer group transition-all"
+              title="คลิกเพื่อกลับสู่หน้าแรกระบบห้องเสื้อ NUNUH"
+            >
+              <div className="h-11 w-11 rounded-2xl bg-natural-espresso group-hover:bg-natural-clay transition-colors flex items-center justify-center text-natural-cream shadow-sm">
                 <Store className="h-5 w-5 text-natural-ochre" />
               </div>
               <div>
-                <h1 className="text-2xl font-serif font-black tracking-widest text-natural-espresso uppercase">
+                <h1 className="text-2xl font-serif font-black tracking-widest text-natural-espresso group-hover:text-natural-clay transition-colors uppercase">
                   NUNUH
                 </h1>
                 <p className="text-[9px] font-bold tracking-widest text-natural-espresso/50 uppercase">
@@ -667,7 +682,7 @@ export default function App() {
             </div>
 
             {/* Top Workspace Tab Navs */}
-            {!isCustomerMode && (
+            {!isCustomerMode ? (
               <nav className="flex items-center space-x-1 bg-natural-sand/50 p-1.5 rounded-2xl border border-natural-wheat/40">
                 {!isStaffMode && (
                   <button
@@ -679,7 +694,7 @@ export default function App() {
                     }`}
                   >
                     <ClipboardCheck className="h-4 w-4" />
-                    <span className="hidden sm:inline">ติดตามงาน</span>
+                    <span className="hidden sm:inline">หน้าแรก (ติดตามงาน)</span>
                   </button>
                 )}
 
@@ -749,6 +764,14 @@ export default function App() {
                   </>
                 )}
               </nav>
+            ) : (
+              <button
+                type="button"
+                onClick={handleGoHome}
+                className="flex items-center space-x-2 px-4 py-2.5 rounded-xl text-xs font-bold bg-natural-espresso text-natural-cream hover:bg-natural-clay transition-all shadow-xs cursor-pointer"
+              >
+                <span>🏠 กลับสู่หน้าแรกระบบห้องเสื้อ</span>
+              </button>
             )}
 
             {/* Elegant Theme Switcher */}
