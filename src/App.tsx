@@ -318,36 +318,29 @@ export default function App() {
     const params = new URLSearchParams(window.location.search);
     const modeParam = params.get('mode');
     const roleParam = params.get('role');
+    const tabParam = params.get('tab');
     
-    // Save or load isCustomerMode / isStaffMode to/from localStorage for persistence!
-    let currentMode = '';
-    if (modeParam) {
-      currentMode = modeParam;
-      localStorage.setItem('nunuh_user_mode', modeParam);
-    } else if (roleParam) {
-      currentMode = roleParam;
-      localStorage.setItem('nunuh_user_mode', roleParam);
-    } else {
-      currentMode = localStorage.getItem('nunuh_user_mode') || '';
-    }
-
-    if (currentMode === 'staff') {
+    // ตรวจสอบพารามิเตอร์ URL เพื่อกำหนดโหมดการใช้งาน
+    if (modeParam === 'staff' || roleParam === 'staff') {
+      localStorage.setItem('nunuh_user_mode', 'staff');
       setIsStaffMode(true);
       setIsCustomerMode(false);
       setActiveTab('orderForm');
-    } else if (currentMode === 'customer' || localStorage.getItem('nunuh_customer_portal_line_userid')) {
-      // If locked to a LINE User ID, force customer mode for maximum security
+    } else if (modeParam === 'customer' || tabParam === 'customer') {
+      localStorage.setItem('nunuh_user_mode', 'customer');
       setIsCustomerMode(true);
       setIsStaffMode(false);
       setActiveTab('customer');
+    } else if (tabParam) {
+      setActiveTab(tabParam);
+      setIsStaffMode(false);
+      setIsCustomerMode(tabParam === 'customer');
     } else {
-      const tabParam = params.get('tab');
-      if (tabParam) {
-        setActiveTab(tabParam);
-        if (tabParam === 'customer') {
-          setIsCustomerMode(true);
-        }
-      }
+      // หากเข้าลิงก์หลักแบบปกติ (ไม่มีพารามิเตอร์) ให้เข้าสู่หน้าแรก "ติดตามงาน" (Main Home Page) ทันที
+      localStorage.removeItem('nunuh_user_mode');
+      setIsStaffMode(false);
+      setIsCustomerMode(false);
+      setActiveTab('tracker');
     }
 
     // เริ่มต้นซิงค์ข้อมูลกับ Backend ทันทีตอนหน้าเว็บโหลด
@@ -357,6 +350,58 @@ export default function App() {
   // ซิงค์สตรีมข้อมูลเรียลไทม์ข้ามแท็บและหลายผู้ใช้งานที่ใช้ลิงก์เดียวกัน (BroadcastChannel + Storage Event + Polling)
   useEffect(() => {
     let channel: BroadcastChannel | null = null;
+    // เชื่อมต่อ SSE Stream (Server-Sent Events) เพื่อรับการอัปเดตข้อมูลแบบเรียลไทม์ทันทีข้ามเครื่อง (เช่น Staff เพิ่มออเดอร์ใหม่)
+    let eventSource: EventSource | null = null;
+    let sseRetryTimer: any = null;
+
+    const connectSSE = () => {
+      try {
+        eventSource = new EventSource('/api/events');
+        eventSource.onmessage = (event) => {
+          try {
+            const payload = JSON.parse(event.data);
+            if (payload.type === 'orders_updated' && Array.isArray(payload.data)) {
+              const deletedIdsStr = localStorage.getItem('nunuh_deleted_order_ids') || '[]';
+              let deletedIds: string[] = [];
+              try { deletedIds = JSON.parse(deletedIdsStr); } catch (e) {}
+
+              const filtered = payload.data.filter((o: Order) => !deletedIds.includes(o.id));
+              setOrders(prev => {
+                const merged = mergeOrders(prev, filtered);
+                localStorage.setItem('nunuh_orders', JSON.stringify(merged));
+                return merged;
+              });
+            } else if (payload.type === 'catalogue_updated' && Array.isArray(payload.data)) {
+              setCatalogue(payload.data);
+              localStorage.setItem('nunuh_catalogue', JSON.stringify(payload.data));
+            } else if (payload.type === 'reviews_updated' && Array.isArray(payload.data)) {
+              setReviews(payload.data);
+              localStorage.setItem('nunuh_reviews', JSON.stringify(payload.data));
+            } else if (payload.type === 'settings_updated' && payload.data) {
+              if (payload.data.boutiquePhone) {
+                setBoutiquePhone(payload.data.boutiquePhone);
+                localStorage.setItem('nunuh_boutique_phone', payload.data.boutiquePhone);
+              }
+              if (payload.data.theme) {
+                setTheme(payload.data.theme);
+                localStorage.setItem('nunuh_selected_theme', payload.data.theme);
+              }
+            }
+          } catch (e) {}
+        };
+
+        eventSource.onerror = () => {
+          if (eventSource) {
+            eventSource.close();
+            eventSource = null;
+          }
+          sseRetryTimer = setTimeout(connectSSE, 3000);
+        };
+      } catch (e) {}
+    };
+
+    connectSSE();
+
     try {
       channel = new BroadcastChannel('nunuh_multiuser_sync_channel');
       channel.onmessage = (event) => {
@@ -406,14 +451,16 @@ export default function App() {
       } catch (e) {}
     }, 2500);
 
-    // ตรวจสอบข้อมูลจาก Server ทุกๆ 8 วินาที เพื่อความเรียลไทม์ข้ามเครื่อง
+    // ตรวจสอบข้อมูลจาก Server ทุกๆ 2.5 วินาที เป็นระบบสำรอง (Fallback) เพื่อความเรียลไทม์ข้ามเครื่องแบบไร้รอยต่อ
     const serverPollInterval = setInterval(() => {
       syncAllDataWithServer();
-    }, 8000);
+    }, 2500);
 
     return () => {
       window.removeEventListener('storage', handleStorageChange);
       if (channel) channel.close();
+      if (eventSource) eventSource.close();
+      if (sseRetryTimer) clearTimeout(sseRetryTimer);
       clearInterval(pollInterval);
       clearInterval(serverPollInterval);
     };

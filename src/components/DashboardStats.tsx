@@ -229,7 +229,7 @@ export default function DashboardStats({ orders, onSelectTab }: DashboardStatsPr
                 id={stat.id}
                 className={`p-5 rounded-2xl border transition-all duration-300 hover:shadow-md flex flex-col justify-between ${stat.color}`}
                 style={{
-                  height: stat.id === 'stat-revenue' ? '190px' : '180px',
+                  height: stat.id === 'stat-revenue' ? '230px' : '180px',
                   ...(stat.id === 'stat-revenue' ? { fontSize: '16px' } : {})
                 }}
               >

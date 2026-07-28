@@ -130,6 +130,38 @@ function writeReviewsOnServer(data: any[]) {
   }
 }
 
+// Server-Sent Events (SSE) for Real-Time Multi-User Sync
+const sseClients: { id: string; res: express.Response }[] = [];
+
+function broadcastSSEEvent(type: string, data: any) {
+  const payload = `data: ${JSON.stringify({ type, data })}\n\n`;
+  for (let i = sseClients.length - 1; i >= 0; i--) {
+    try {
+      sseClients[i].res.write(payload);
+    } catch (err) {
+      sseClients.splice(i, 1);
+    }
+  }
+}
+
+app.get("/api/events", (req, res) => {
+  res.setHeader("Content-Type", "text/event-stream");
+  res.setHeader("Cache-Control", "no-cache, no-transform");
+  res.setHeader("Connection", "keep-alive");
+  res.setHeader("X-Accel-Buffering", "no");
+  res.flushHeaders();
+
+  const clientId = Date.now() + "_" + Math.random().toString(36).substring(2, 9);
+  sseClients.push({ id: clientId, res });
+
+  res.write(`data: ${JSON.stringify({ type: 'connected' })}\n\n`);
+
+  req.on("close", () => {
+    const idx = sseClients.findIndex(c => c.id === clientId);
+    if (idx !== -1) sseClients.splice(idx, 1);
+  });
+});
+
 // REST API Endpoints
 app.get("/api/orders", (req, res) => {
   const serverOrders = readOrdersOnServer();
@@ -151,6 +183,9 @@ app.delete("/api/orders/:id", (req, res) => {
   const updated = current.filter((o: any) => o.id !== id);
   writeOrdersOnServer(updated);
   
+  // Real-time broadcast to all clients
+  broadcastSSEEvent("orders_updated", updated);
+
   res.json({ success: true, orders: updated });
 });
 
@@ -196,6 +231,10 @@ app.post("/api/orders", (req: any, res) => {
     });
     
     writeOrdersOnServer(fullyMerged);
+
+    // Real-time broadcast to all connected users (Staff & Main Admin)
+    broadcastSSEEvent("orders_updated", fullyMerged);
+
     res.json(fullyMerged);
   } else if (Array.isArray(req.body)) {
     // Fallback for direct array posting
@@ -223,6 +262,10 @@ app.post("/api/orders", (req: any, res) => {
       return (b.orderNumber || "").localeCompare(a.orderNumber || "", undefined, { numeric: true });
     });
     writeOrdersOnServer(fullyMerged);
+
+    // Real-time broadcast
+    broadcastSSEEvent("orders_updated", fullyMerged);
+
     res.json(fullyMerged);
   } else {
     res.status(400).json({ error: "Invalid data format. Expected an array of orders or an object with orders." });
@@ -239,6 +282,7 @@ app.post("/api/catalogue", (req, res) => {
   const incoming = req.body;
   if (Array.isArray(incoming)) {
     writeCatalogueOnServer(incoming);
+    broadcastSSEEvent("catalogue_updated", incoming);
     res.json({ success: true, catalogue: incoming });
   } else {
     res.status(400).json({ error: "Invalid data format. Expected an array of catalogue items." });
@@ -256,6 +300,7 @@ app.post("/api/settings", (req, res) => {
     const current = readSettingsOnServer();
     const updated = { ...current, ...incoming };
     writeSettingsOnServer(updated);
+    broadcastSSEEvent("settings_updated", updated);
     res.json({ success: true, settings: updated });
   } else {
     res.status(400).json({ error: "Invalid data format. Expected an object." });
@@ -271,6 +316,7 @@ app.post("/api/reviews", (req, res) => {
   const incoming = req.body;
   if (Array.isArray(incoming)) {
     writeReviewsOnServer(incoming);
+    broadcastSSEEvent("reviews_updated", incoming);
     res.json({ success: true, reviews: incoming });
   } else {
     res.status(400).json({ error: "Invalid data format. Expected an array of reviews." });

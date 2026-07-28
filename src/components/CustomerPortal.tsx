@@ -292,24 +292,33 @@ export default function CustomerPortal({
       if (queryToUse) {
         setSearchQuery(queryToUse);
         const query = queryToUse.trim().toLowerCase();
+        const queryDigits = query.replace(/\D/g, '');
         const cleanQuery = query.replace(/[\s-()]/g, '');
 
         const matched = orders.filter(order => {
+          const phoneDigits = order.customerPhone.replace(/\D/g, '');
           const cleanPhone = order.customerPhone.replace(/[\s-()]/g, '');
           const orderNum = order.orderNumber.toLowerCase();
           const customerName = order.customerName.toLowerCase();
-          return (
-            cleanPhone === cleanQuery || 
-            orderNum === query || 
-            customerName.includes(query) ||
-            (order.sku && order.sku.toLowerCase().includes(query))
-          );
+          const sku = (order.sku || '').toLowerCase();
+
+          const matchesPhone = (queryDigits.length >= 6 && phoneDigits.includes(queryDigits)) || cleanPhone === cleanQuery;
+          const matchesOrderNum = orderNum === query || orderNum.includes(query);
+          const matchesName = customerName.includes(query);
+          const matchesSku = sku.includes(query);
+
+          return matchesPhone || matchesOrderNum || matchesName || matchesSku;
         });
 
         if (matched.length > 0) {
-          const matchedPhone = matched[0].customerPhone.replace(/[\s-()]/g, '');
-          localStorage.setItem('nunuh_customer_portal_phone', matchedPhone);
-          const allMatchedOrders = orders.filter(o => o.customerPhone.replace(/[\s-()]/g, '') === matchedPhone);
+          const matchedPhoneDigits = matched[0].customerPhone.replace(/\D/g, '');
+          const matchedPhoneClean = matched[0].customerPhone.replace(/[\s-()]/g, '');
+          localStorage.setItem('nunuh_customer_portal_phone', matchedPhoneClean);
+          const allMatchedOrders = orders.filter(o => {
+            const pDigits = o.customerPhone.replace(/\D/g, '');
+            const pClean = o.customerPhone.replace(/[\s-()]/g, '');
+            return pDigits === matchedPhoneDigits || pClean === matchedPhoneClean;
+          });
           setSearchedOrders(allMatchedOrders);
         } else {
           setSearchedOrders([]);
@@ -342,152 +351,84 @@ export default function CustomerPortal({
     } catch(e) {}
 
     const query = searchQuery.trim().toLowerCase();
+    const queryDigits = query.replace(/\D/g, '');
     const cleanQuery = query.replace(/[\s-()]/g, '');
 
-    // Priority 1: If session is locked to a LINE User ID
-    if (savedLineUserId) {
-      setIsLineLocked(true);
-
-      // Check existing bound orders for this LINE account
-      let existingBoundOrders = orders.filter(o => 
-        o.lineUserId === savedLineUserId ||
-        (connectedPhones.length > 0 && connectedPhones.includes(o.customerPhone.replace(/[\s-()]/g, '')))
-      );
-
-      // If this LINE account ALREADY has bound orders:
-      if (existingBoundOrders.length > 0) {
-        const phones = Array.from(new Set(existingBoundOrders.map(o => o.customerPhone.replace(/[\s-()]/g, '')).filter(Boolean)));
-        localStorage.setItem('nunuh_customer_portal_connected_phones', JSON.stringify(phones));
-
-        if (query) {
-          // Search strictly WITHIN this user's bound orders
-          const matched = existingBoundOrders.filter(order => {
-            const cleanPhone = order.customerPhone.replace(/[\s-()]/g, '');
-            const orderNum = order.orderNumber.toLowerCase();
-            const customerName = order.customerName.toLowerCase();
-            return (
-              cleanPhone === cleanQuery || 
-              orderNum === query || 
-              customerName.includes(query) ||
-              (order.sku && order.sku.toLowerCase().includes(query))
-            );
-          });
-          setSearchedOrders(matched);
-        } else {
-          setSearchedOrders(existingBoundOrders);
+    if (!query) {
+      // Empty search query -> show existing bound orders if LINE session exists
+      if (savedLineUserId) {
+        const existingBound = orders.filter(o => 
+          o.lineUserId === savedLineUserId ||
+          (connectedPhones.length > 0 && connectedPhones.includes(o.customerPhone.replace(/\D/g, '')))
+        );
+        if (existingBound.length > 0) {
+          setSearchedOrders(existingBound);
+          setHasSearched(true);
+          return;
         }
-        setHasSearched(true);
-        return;
       }
-
-      // If this LINE account does NOT have bound orders yet:
-      if (query) {
-        const matchingUnbound = orders.filter(order => {
-          const cleanPhone = order.customerPhone.replace(/[\s-()]/g, '');
-          const orderNum = order.orderNumber.toLowerCase();
-          const matchesQuery = cleanPhone === cleanQuery || orderNum === query || cleanPhone.includes(cleanQuery) || orderNum.includes(query);
-          const isAvailable = !order.lineUserId || order.lineUserId === savedLineUserId;
-          return matchesQuery && isAvailable;
-        });
-
-        if (matchingUnbound.length > 0) {
-          const matchedPhone = matchingUnbound[0].customerPhone.replace(/[\s-()]/g, '');
-          const allUserOrders = orders.filter(o => o.customerPhone.replace(/[\s-()]/g, '') === matchedPhone && (!o.lineUserId || o.lineUserId === savedLineUserId));
-
-          if (onUpdateOrders) {
-            const updated = orders.map(o => {
-              if (allUserOrders.some(m => m.id === o.id) && !o.lineUserId) {
-                return { ...o, lineUserId: savedLineUserId };
-              }
-              return o;
-            });
-            onUpdateOrders(updated);
-          }
-
-          localStorage.setItem('nunuh_customer_portal_phone', matchedPhone);
-          localStorage.setItem('nunuh_customer_portal_connected_phones', JSON.stringify([matchedPhone]));
-
-          setSearchedOrders(allUserOrders);
-        } else {
-          setSearchedOrders([]);
-        }
-        setHasSearched(true);
-        return;
-      } else {
-        setSearchedOrders([]);
-        setHasSearched(true);
-        return;
-      }
+      setSearchedOrders(null);
+      setHasSearched(false);
+      return;
     }
 
-    // Priority 2: If session is locked to a phone number
-    const savedPhone = localStorage.getItem('nunuh_customer_portal_phone');
-    if (savedPhone && isCustomerLocked) {
-      const userOrders = orders.filter(order => 
-        order.customerPhone.replace(/[\s-()]/g, '') === savedPhone
-      );
+    // Always search across ALL orders in system when a query is entered
+    const matched = orders.filter(order => {
+      const phoneDigits = order.customerPhone.replace(/\D/g, '');
+      const cleanPhone = order.customerPhone.replace(/[\s-()]/g, '');
+      const orderNum = order.orderNumber.toLowerCase();
+      const customerName = order.customerName.toLowerCase();
+      const sku = (order.sku || '').toLowerCase();
 
-      if (query) {
-        const matched = userOrders.filter(order => {
-          const cleanPhone = order.customerPhone.replace(/[\s-()]/g, '');
-          const orderNum = order.orderNumber.toLowerCase();
-          const customerName = order.customerName.toLowerCase();
-          return (
-            cleanPhone === cleanQuery || 
-            orderNum === query || 
-            customerName.includes(query) ||
-            (order.sku && order.sku.toLowerCase().includes(query))
-          );
-        });
-        setSearchedOrders(matched);
-      } else {
-        setSearchedOrders(userOrders);
+      const matchesPhone = (queryDigits.length >= 6 && phoneDigits.includes(queryDigits)) || cleanPhone === cleanQuery;
+      const matchesOrderNum = orderNum === query || orderNum.includes(query);
+      const matchesName = customerName.includes(query);
+      const matchesSku = sku.includes(query);
+
+      return matchesPhone || matchesOrderNum || matchesName || matchesSku;
+    });
+
+    if (matched.length > 0) {
+      // Found order(s)! Get primary phone number for this customer
+      const primaryPhoneDigits = matched[0].customerPhone.replace(/\D/g, '');
+      const primaryPhoneClean = matched[0].customerPhone.replace(/[\s-()]/g, '');
+
+      // Get ALL orders belonging to this customer
+      const allCustomerOrders = orders.filter(o => {
+        const pDigits = o.customerPhone.replace(/\D/g, '');
+        const pClean = o.customerPhone.replace(/[\s-()]/g, '');
+        return pDigits === primaryPhoneDigits || pClean === primaryPhoneClean;
+      });
+
+      // Save phone number to session
+      localStorage.setItem('nunuh_customer_portal_phone', primaryPhoneClean);
+
+      // If LINE User ID is active, bind this customer's phone & orders
+      if (savedLineUserId) {
+        setIsLineLocked(true);
+        if (!connectedPhones.includes(primaryPhoneClean)) {
+          connectedPhones.push(primaryPhoneClean);
+          localStorage.setItem('nunuh_customer_portal_connected_phones', JSON.stringify(connectedPhones));
+        }
+
+        if (onUpdateOrders) {
+          const updated = orders.map(o => {
+            if (allCustomerOrders.some(m => m.id === o.id) && !o.lineUserId) {
+              return { ...o, lineUserId: savedLineUserId };
+            }
+            return o;
+          });
+          onUpdateOrders(updated);
+        }
       }
+
+      setSearchedOrders(allCustomerOrders);
       setHasSearched(true);
       return;
     }
 
-    // Priority 3: Initial search when no session lock exists yet
-    if (!query) return;
-
-    const matched = orders.filter(order => {
-      const cleanPhone = order.customerPhone.replace(/[\s-()]/g, '');
-      const orderNum = order.orderNumber.toLowerCase();
-      const customerName = order.customerName.toLowerCase();
-
-      const matchesQuery = (
-        cleanPhone === cleanQuery || 
-        orderNum === query ||
-        cleanPhone.includes(cleanQuery) || 
-        orderNum.includes(query) || 
-        customerName.includes(query) ||
-        (order.sku && order.sku.toLowerCase().includes(query))
-      );
-
-      const activeLineUserId = localStorage.getItem('nunuh_customer_portal_line_userid');
-      if (isCustomerLocked && order.lineUserId && activeLineUserId) {
-        return matchesQuery && order.lineUserId === activeLineUserId;
-      }
-
-      return matchesQuery;
-    });
-
-    if (matched.length > 0) {
-      const matchedPhone = matched[0].customerPhone.replace(/[\s-()]/g, '');
-      localStorage.setItem('nunuh_customer_portal_phone', matchedPhone);
-
-      const userOrders = orders.filter(o => o.customerPhone.replace(/[\s-()]/g, '') === matchedPhone);
-
-      const orderWithLineId = userOrders.find(o => o.lineUserId);
-      if (orderWithLineId && orderWithLineId.lineUserId) {
-        localStorage.setItem('nunuh_customer_portal_line_userid', orderWithLineId.lineUserId);
-        setIsLineLocked(true);
-      }
-
-      setSearchedOrders(userOrders);
-    } else {
-      setSearchedOrders([]);
-    }
+    // No matching order found for this query in the database
+    setSearchedOrders([]);
     setHasSearched(true);
   };
 
