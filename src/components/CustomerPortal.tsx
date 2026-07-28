@@ -56,8 +56,13 @@ export default function CustomerPortal({
   isCustomerLocked = false 
 }: CustomerPortalProps) {
   // Retrieve custom LINE OA settings from localStorage (configured by admin)
-  const lineOaId = localStorage.getItem('nunuh_line_oa_id') || '';
+  const lineOaId = localStorage.getItem('nunuh_line_oa_id') || '@237aynfq';
   const boutiquePhone = localStorage.getItem('nunuh_boutique_phone') || '086-555-1234';
+
+  const getLineOaHref = (id: string) => {
+    const clean = (id || '@237aynfq').trim().replace(/^@/, '');
+    return `https://line.me/R/ti/p/@${clean}`;
+  };
 
   // States for Order Tracking
   const [searchQuery, setSearchQuery] = useState('');
@@ -746,7 +751,7 @@ export default function CustomerPortal({
                                   <span className="text-natural-clay">✉️ ช่องทางติดต่อ:</span>
                                   {lineOaId ? (
                                     <a 
-                                      href={`https://line.me/R/oaMessage/${lineOaId.replace('@', '')}/`}
+                                      href={getLineOaHref(lineOaId)}
                                       target="_blank"
                                       rel="noopener noreferrer"
                                       className="bg-[#06C755]/10 hover:bg-[#06C755]/20 text-[#05b34c] font-black px-2 py-0.5 rounded border border-[#06C755]/30 inline-flex items-center space-x-1 transition-all"
@@ -1174,7 +1179,7 @@ export default function CustomerPortal({
                               <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto justify-end">
                                 {lineOaId && (
                                   <a 
-                                    href={`https://line.me/R/oaMessage/${lineOaId.replace('@', '')}/`}
+                                    href={getLineOaHref(lineOaId)}
                                     target="_blank"
                                     rel="noopener noreferrer"
                                     className="bg-[#06C755] hover:bg-[#05b34c] text-white font-semibold px-4 py-2 rounded-lg flex items-center space-x-1.5 transition-all cursor-pointer shadow-xs"
@@ -1543,7 +1548,7 @@ export default function CustomerPortal({
                               {lineOaId && (
                                 <>
                                   <a 
-                                    href={`https://line.me/R/oaMessage/${lineOaId.replace('@', '')}/`}
+                                    href={getLineOaHref(lineOaId)}
                                     target="_blank"
                                     rel="noopener noreferrer"
                                     className="text-[#05b34c] hover:text-[#04943f] font-bold flex items-center space-x-1 cursor-pointer"
