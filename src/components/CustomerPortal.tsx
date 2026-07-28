@@ -1026,45 +1026,51 @@ export default function CustomerPortal({
                                       📐 {order.customDesign.silhouette} | {order.customDesign.neckline} | {order.customDesign.sleeves}
                                     </p>
                                   )}
-                                  {(order.customImage || order.customImage2) && (
-                                    <div className="mt-2.5 pt-2.5 border-t border-natural-sand/60">
-                                      <p className="text-[10px] text-natural-espresso/45 font-bold mb-1 uppercase tracking-wider">รูปภาพแบบชุดอ้างอิง</p>
-                                      <div className={`grid ${order.customImage && order.customImage2 ? 'grid-cols-2' : 'grid-cols-1'} gap-2`}>
-                                        {order.customImage && (
-                                          <div className="relative rounded-lg overflow-hidden border border-natural-wheat h-28 bg-natural-sand/5 flex items-center justify-center">
-                                            <img 
-                                              src={order.customImage} 
-                                              alt="Design Reference 1" 
-                                              className="h-full object-contain cursor-zoom-in"
-                                              referrerPolicy="no-referrer"
-                                              onClick={() => {
-                                                const imgWindow = window.open();
-                                                if (imgWindow) {
-                                                  imgWindow.document.write(`<img src="${order.customImage}" style="max-width:100%; max-height:100vh; display:block; margin:auto;"/>`);
-                                                }
-                                              }}
-                                            />
-                                          </div>
-                                        )}
-                                        {order.customImage2 && (
-                                          <div className="relative rounded-lg overflow-hidden border border-natural-wheat h-28 bg-natural-sand/5 flex items-center justify-center">
-                                            <img 
-                                              src={order.customImage2} 
-                                              alt="Design Reference 2" 
-                                              className="h-full object-contain cursor-zoom-in"
-                                              referrerPolicy="no-referrer"
-                                              onClick={() => {
-                                                const imgWindow = window.open();
-                                                if (imgWindow) {
-                                                  imgWindow.document.write(`<img src="${order.customImage2}" style="max-width:100%; max-height:100vh; display:block; margin:auto;"/>`);
-                                                }
-                                              }}
-                                            />
-                                          </div>
-                                        )}
+                                  {(() => {
+                                    const resolvedImg = order.customImage || (order.selectedDesignId ? catalogue.find(c => c.id === order.selectedDesignId)?.image : null);
+                                    const hasImages = resolvedImg || order.customImage2;
+                                    if (!hasImages) return null;
+
+                                    return (
+                                      <div className="mt-2.5 pt-2.5 border-t border-natural-sand/60">
+                                        <p className="text-[10px] text-natural-espresso/45 font-bold mb-1 uppercase tracking-wider">รูปภาพแบบชุดอ้างอิง</p>
+                                        <div className={`grid ${resolvedImg && order.customImage2 ? 'grid-cols-2' : 'grid-cols-1'} gap-2`}>
+                                          {resolvedImg && (
+                                            <div className="relative rounded-lg overflow-hidden border border-natural-wheat h-28 bg-natural-sand/5 flex items-center justify-center">
+                                              <img 
+                                                src={resolvedImg} 
+                                                alt="Design Reference 1" 
+                                                className="h-full object-contain cursor-zoom-in"
+                                                referrerPolicy="no-referrer"
+                                                onClick={() => {
+                                                  const imgWindow = window.open();
+                                                  if (imgWindow) {
+                                                    imgWindow.document.write(`<img src="${resolvedImg}" style="max-width:100%; max-height:100vh; display:block; margin:auto;"/>`);
+                                                  }
+                                                }}
+                                              />
+                                            </div>
+                                          )}
+                                          {order.customImage2 && (
+                                            <div className="relative rounded-lg overflow-hidden border border-natural-wheat h-28 bg-natural-sand/5 flex items-center justify-center">
+                                              <img 
+                                                src={order.customImage2} 
+                                                alt="Design Reference 2" 
+                                                className="h-full object-contain cursor-zoom-in"
+                                                referrerPolicy="no-referrer"
+                                                onClick={() => {
+                                                  const imgWindow = window.open();
+                                                  if (imgWindow) {
+                                                    imgWindow.document.write(`<img src="${order.customImage2}" style="max-width:100%; max-height:100vh; display:block; margin:auto;"/>`);
+                                                  }
+                                                }}
+                                              />
+                                            </div>
+                                          )}
+                                        </div>
                                       </div>
-                                    </div>
-                                  )}
+                                    );
+                                  })()}
                                   {order.slipImage && (
                                     <div className="mt-2.5 pt-2.5 border-t border-natural-sand/60">
                                       <p className="text-[10px] text-natural-espresso/45 font-bold mb-1 uppercase tracking-wider">หลักฐานการชำระเงิน (สลิปโอนเงิน)</p>
@@ -1265,9 +1271,10 @@ export default function CustomerPortal({
                             <div className="flex items-center space-x-3.5 md:col-span-2">
                               <div className="w-14 h-14 bg-natural-sand rounded-xl overflow-hidden border border-natural-wheat flex-shrink-0">
                                 <img 
-                                  src={order.customImage || "https://images.unsplash.com/photo-1512436991641-6745cdb1723f?auto=format&fit=crop&q=80&w=200"} 
+                                  src={order.customImage || (order.selectedDesignId ? catalogue.find(c => c.id === order.selectedDesignId)?.image : null) || "https://images.unsplash.com/photo-1512436991641-6745cdb1723f?auto=format&fit=crop&q=80&w=200"} 
                                   alt="" 
                                   className="w-full h-full object-cover"
+                                  referrerPolicy="no-referrer"
                                 />
                               </div>
                               <div className="space-y-0.5 text-xs">

@@ -38,6 +38,7 @@ export default function App() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [catalogue, setCatalogue] = useState<CatalogueItem[]>([]);
   const [reviews, setReviews] = useState<CustomerReview[]>([]);
+  const [preselectedDesignId, setPreselectedDesignId] = useState<string>('custom');
   const [activeTab, setActiveTab] = useState<string>('tracker'); // tracker, orderForm, calendar, catalogue, reviews
   const [isCustomerMode, setIsCustomerMode] = useState<boolean>(false);
   const [isStaffMode, setIsStaffMode] = useState<boolean>(false);
@@ -516,6 +517,7 @@ export default function App() {
 
   // ฟังก์ชันเลือกแบบชุดจากแคตตาล็อกเพื่อนำมาใส่หน้าฟอร์มรับออเดอร์ทันที
   const handleSelectDesignForOrder = (designId: string) => {
+    setPreselectedDesignId(designId);
     setActiveTab('orderForm');
     // โครงสร้างฟอร์มจะดึงไอดีการเลือกนี้ไปเปิดอัตโนมัติเนื่องจากถูกเลือกและส่งต่อไปที่คอมโพเนนต์
     setTimeout(() => {
@@ -918,6 +920,7 @@ export default function App() {
                   </div>
                   <OrderTracker 
                     orders={orders} 
+                    catalogue={catalogue}
                     onUpdateOrderStatus={handleUpdateOrderStatus}
                     onDeleteOrder={handleDeleteOrder}
                     onEditOrder={handleUpdateOrder}
@@ -936,6 +939,8 @@ export default function App() {
                     onAddOrder={handleAddOrder}
                     nextOrderNumber={getNextOrderNumber()}
                     orders={orders}
+                    preselectedDesignId={preselectedDesignId}
+                    onClearPreselectedDesign={() => setPreselectedDesignId('custom')}
                   />
                 </div>
               )}

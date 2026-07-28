@@ -4,7 +4,7 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { Order, OrderStatus, STATUS_MAP, StatusConfig } from '../types';
+import { Order, OrderStatus, STATUS_MAP, StatusConfig, CatalogueItem } from '../types';
 import { 
   Search, 
   Filter, 
@@ -39,12 +39,13 @@ import FeedbackSection from './FeedbackSection';
 
 interface OrderTrackerProps {
   orders: Order[];
+  catalogue?: CatalogueItem[];
   onUpdateOrderStatus: (orderId: string, nextStatus: OrderStatus) => void;
   onDeleteOrder: (orderId: string) => void;
   onEditOrder?: (updatedOrder: Order) => void;
 }
 
-export default function OrderTracker({ orders, onUpdateOrderStatus, onDeleteOrder, onEditOrder }: OrderTrackerProps) {
+export default function OrderTracker({ orders, catalogue = [], onUpdateOrderStatus, onDeleteOrder, onEditOrder }: OrderTrackerProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('ALL_ACTIVE'); // ALL, ALL_ACTIVE, or specific status
   const [branchFilter, setBranchFilter] = useState<string>('ALL');
@@ -1017,6 +1018,7 @@ export default function OrderTracker({ orders, onUpdateOrderStatus, onDeleteOrde
             const currentStatusCfg = STATUS_MAP[order.status];
             const isExpanded = expandedOrderId === order.id;
             const unpaid = getUnpaidBalance(order);
+            const orderImage = order.customImage || (order.selectedDesignId ? catalogue.find(item => item.id === order.selectedDesignId)?.image : null);
 
             return (
               <div 
@@ -1033,62 +1035,74 @@ export default function OrderTracker({ orders, onUpdateOrderStatus, onDeleteOrde
                   className="p-5 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 cursor-pointer select-none"
                 >
                   
-                  {/* Left Side: Order Number & Customer Name */}
-                  <div className="space-y-1.5 flex-1">
-                    <div className="flex flex-wrap items-center gap-1.5">
-                      <span className="font-mono text-xs font-extrabold bg-natural-espresso text-natural-cream px-2 py-0.5 rounded">
-                        {order.orderNumber}
-                      </span>
-                      <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full border ${currentStatusCfg.colorClass}`}>
-                        {currentStatusCfg.label}
-                      </span>
-                      {order.customerCategory && (
-                        <span className="bg-amber-50 text-amber-800 text-[10px] font-extrabold px-2 py-0.5 rounded border border-amber-200">
-                          ประเภทงาน: {order.customerCategory}
+                  {/* Left Side: Image Thumbnail (if exists) & Order Number & Customer Name */}
+                  <div className="flex items-start gap-4 flex-1 min-w-0">
+                    {orderImage && (
+                      <div className="h-16 w-12 rounded-xl overflow-hidden bg-natural-sand/15 border border-natural-wheat shrink-0 shadow-xs">
+                        <img 
+                          src={orderImage} 
+                          alt="Design Thumbnail" 
+                          className="h-full w-full object-cover"
+                          referrerPolicy="no-referrer"
+                        />
+                      </div>
+                    )}
+                    <div className="space-y-1.5 flex-1 min-w-0">
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <span className="font-mono text-xs font-extrabold bg-natural-espresso text-natural-cream px-2 py-0.5 rounded">
+                          {order.orderNumber}
                         </span>
-                      )}
-                      {order.membershipTier && (
-                        <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded border ${
-                          order.membershipTier === 'PRIME' ? 'bg-yellow-50 text-yellow-800 border-yellow-200' :
-                          order.membershipTier === 'PRIVILEGE' ? 'bg-rose-50 text-rose-800 border-rose-200' :
-                          order.membershipTier === 'TRADER' ? 'bg-emerald-50 text-emerald-800 border-emerald-200' :
-                          'bg-stone-50 text-stone-800 border-stone-200'
-                        }`}>
-                          บัตร: {order.membershipTier}
+                        <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full border ${currentStatusCfg.colorClass}`}>
+                          {currentStatusCfg.label}
                         </span>
-                      )}
-                      {order.externalOrderId && (
-                        <span className="bg-sky-50 text-sky-800 text-[10px] font-mono font-bold px-2 py-0.5 rounded border border-sky-200">
-                          รหัสอ้างอิง: {order.externalOrderId}
-                        </span>
-                      )}
-                      {order.branch && (
-                        <span className="bg-purple-50 text-purple-800 text-[10px] font-extrabold px-2 py-0.5 rounded border border-purple-200">
-                          🏪 {order.branch}
-                        </span>
-                      )}
-                      {order.isMatchingSet && (
-                        <span className="bg-amber-100 text-amber-900 text-[10px] font-extrabold px-2 py-0.5 rounded border border-amber-300 flex items-center gap-1 animate-pulse">
-                          ✨ งานเข้าชุด {order.idhNumber ? `(IDH: ${order.idhNumber})` : ''}
-                        </span>
-                      )}
-                      {order.sku && (
-                        <span className="bg-natural-clay/15 text-natural-clay text-[10px] font-mono font-bold px-2 py-0.5 rounded border border-natural-clay/20 uppercase tracking-wide">
-                          SKU: {order.sku}
-                        </span>
-                      )}
-                    </div>
-                    <div className="flex items-center space-x-3">
-                      <h4 className="font-serif font-bold text-natural-espresso text-lg leading-tight">
-                        {order.customerName}
-                      </h4>
-                      <p className="text-xs text-natural-espresso/60 flex items-center">
-                        <Phone className="h-3 w-3 mr-1 inline" /> {order.customerPhone}
+                        {order.customerCategory && (
+                          <span className="bg-amber-50 text-amber-800 text-[10px] font-extrabold px-2 py-0.5 rounded border border-amber-200">
+                            ประเภทงาน: {order.customerCategory}
+                          </span>
+                        )}
+                        {order.membershipTier && (
+                          <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded border ${
+                            order.membershipTier === 'PRIME' ? 'bg-yellow-50 text-yellow-800 border-yellow-200' :
+                            order.membershipTier === 'PRIVILEGE' ? 'bg-rose-50 text-rose-800 border-rose-200' :
+                            order.membershipTier === 'TRADER' ? 'bg-emerald-50 text-emerald-800 border-emerald-200' :
+                            'bg-stone-50 text-stone-800 border-stone-200'
+                          }`}>
+                            บัตร: {order.membershipTier}
+                          </span>
+                        )}
+                        {order.externalOrderId && (
+                          <span className="bg-sky-50 text-sky-800 text-[10px] font-mono font-bold px-2 py-0.5 rounded border border-sky-200">
+                            รหัสอ้างอิง: {order.externalOrderId}
+                          </span>
+                        )}
+                        {order.branch && (
+                          <span className="bg-purple-50 text-purple-800 text-[10px] font-extrabold px-2 py-0.5 rounded border border-purple-200">
+                            🏪 {order.branch}
+                          </span>
+                        )}
+                        {order.isMatchingSet && (
+                          <span className="bg-amber-100 text-amber-900 text-[10px] font-extrabold px-2 py-0.5 rounded border border-amber-300 flex items-center gap-1 animate-pulse">
+                            ✨ งานเข้าชุด {order.idhNumber ? `(IDH: ${order.idhNumber})` : ''}
+                          </span>
+                        )}
+                        {order.sku && (
+                          <span className="bg-natural-clay/15 text-natural-clay text-[10px] font-mono font-bold px-2 py-0.5 rounded border border-natural-clay/20 uppercase tracking-wide">
+                            SKU: {order.sku}
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex items-center space-x-3">
+                        <h4 className="font-serif font-bold text-natural-espresso text-lg leading-tight">
+                          {order.customerName}
+                        </h4>
+                        <p className="text-xs text-natural-espresso/60 flex items-center">
+                          <Phone className="h-3 w-3 mr-1 inline" /> {order.customerPhone}
+                        </p>
+                      </div>
+                      <p className="text-xs text-natural-espresso/80 font-medium">
+                        ชุด: <span className="text-natural-espresso font-semibold">{order.dressType}</span> | ผ้า: <span className="text-natural-espresso">{order.fabricType} ({order.fabricColor})</span>
                       </p>
                     </div>
-                    <p className="text-xs text-natural-espresso/80 font-medium">
-                      ชุด: <span className="text-natural-espresso font-semibold">{order.dressType}</span> | ผ้า: <span className="text-natural-espresso">{order.fabricType} ({order.fabricColor})</span>
-                    </p>
                   </div>
 
                   {/* Right Side: Delivery Target & Price / Expand button */}
@@ -1387,50 +1401,56 @@ export default function OrderTracker({ orders, onUpdateOrderStatus, onDeleteOrde
                             </div>
                           )}
 
-                          {(order.customImage || order.customImage2) && (
-                            <div className="pt-2 border-t border-natural-sand/50">
-                              <p className="text-[10px] text-natural-espresso/45 font-bold mb-1.5 flex items-center">
-                                <MessageSquare className="h-3 w-3 mr-1 text-natural-clay" />
-                                <span>รูปภาพแบบชุดสั่งตัด (Design Reference Photos)</span>
-                              </p>
-                              <div className={`grid ${order.customImage && order.customImage2 ? 'grid-cols-2' : 'grid-cols-1'} gap-2`}>
-                                {order.customImage && (
-                                  <div className="relative rounded-xl overflow-hidden border border-natural-wheat bg-natural-sand/5 max-h-48 group">
-                                    <img 
-                                      src={order.customImage} 
-                                      alt="Custom Reference 1" 
-                                      className="w-full object-contain max-h-48 rounded-lg cursor-zoom-in mx-auto"
-                                      referrerPolicy="no-referrer"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        const imgWindow = window.open();
-                                        if (imgWindow) {
-                                          imgWindow.document.write(`<img src="${order.customImage}" style="max-width:100%; max-height:100vh; display:block; margin:auto;"/>`);
-                                        }
-                                      }}
-                                    />
-                                  </div>
-                                )}
-                                {order.customImage2 && (
-                                  <div className="relative rounded-xl overflow-hidden border border-natural-wheat bg-natural-sand/5 max-h-48 group">
-                                    <img 
-                                      src={order.customImage2} 
-                                      alt="Custom Reference 2" 
-                                      className="w-full object-contain max-h-48 rounded-lg cursor-zoom-in mx-auto"
-                                      referrerPolicy="no-referrer"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        const imgWindow = window.open();
-                                        if (imgWindow) {
-                                          imgWindow.document.write(`<img src="${order.customImage2}" style="max-width:100%; max-height:100vh; display:block; margin:auto;"/>`);
-                                        }
-                                      }}
-                                    />
-                                  </div>
-                                )}
+                          {(() => {
+                            const resolvedImg = order.customImage || (order.selectedDesignId ? catalogue.find(c => c.id === order.selectedDesignId)?.image : null);
+                            const hasImages = resolvedImg || order.customImage2;
+                            if (!hasImages) return null;
+
+                            return (
+                              <div className="pt-2 border-t border-natural-sand/50">
+                                <p className="text-[10px] text-natural-espresso/45 font-bold mb-1.5 flex items-center">
+                                  <MessageSquare className="h-3 w-3 mr-1 text-natural-clay" />
+                                  <span>รูปภาพแบบชุดสั่งตัดที่เลือก (Selected Design / Reference Photos)</span>
+                                </p>
+                                <div className={`grid ${resolvedImg && order.customImage2 ? 'grid-cols-2' : 'grid-cols-1'} gap-2`}>
+                                  {resolvedImg && (
+                                    <div className="relative rounded-xl overflow-hidden border border-natural-wheat bg-natural-sand/5 max-h-48 group">
+                                      <img 
+                                        src={resolvedImg} 
+                                        alt="Design Reference 1" 
+                                        className="w-full object-contain max-h-48 rounded-lg cursor-zoom-in mx-auto"
+                                        referrerPolicy="no-referrer"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          const imgWindow = window.open();
+                                          if (imgWindow) {
+                                            imgWindow.document.write(`<img src="${resolvedImg}" style="max-width:100%; max-height:100vh; display:block; margin:auto;"/>`);
+                                          }
+                                        }}
+                                      />
+                                    </div>
+                                  )}
+                                  {order.customImage2 && (
+                                    <div className="relative rounded-xl overflow-hidden border border-natural-wheat bg-natural-sand/5 max-h-48 group">
+                                      <img 
+                                        src={order.customImage2} 
+                                        alt="Custom Reference 2" 
+                                        className="w-full object-contain max-h-48 rounded-lg cursor-zoom-in mx-auto"
+                                        referrerPolicy="no-referrer"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          const imgWindow = window.open();
+                                          if (imgWindow) {
+                                            imgWindow.document.write(`<img src="${order.customImage2}" style="max-width:100%; max-height:100vh; display:block; margin:auto;"/>`);
+                                          }
+                                        }}
+                                      />
+                                    </div>
+                                  )}
+                                </div>
                               </div>
-                            </div>
-                          )}
+                            );
+                          })()}
 
                           {order.slipImage && (
                             <div className="pt-2 border-t border-natural-sand/50">
@@ -1536,18 +1556,6 @@ export default function OrderTracker({ orders, onUpdateOrderStatus, onDeleteOrde
                               type="button"
                               onClick={(e) => {
                                 e.stopPropagation();
-                                handleDirectLineChat(order);
-                              }}
-                              className="bg-[#06C755] hover:bg-[#05b34c] text-white text-[11px] font-bold py-2.5 px-3 rounded-xl transition-all flex items-center justify-center space-x-1.5 cursor-pointer shadow-xs flex-1"
-                              title="คัดลอกข้อความแจ้งสถานะและเปิดหน้าแผงแชท LINE OA ของร้านคุณ"
-                            >
-                              <MessageSquare className="h-3.5 w-3.5" />
-                              <span>คุย LINE (แอดมิน) 💬</span>
-                            </button>
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
                                 const currentStatusCfg = STATUS_MAP[order.status];
                                 const discountVal = order.discount || 0;
                                 const unpaid = Math.max(0, order.price - order.deposit - discountVal);
@@ -1576,17 +1584,6 @@ export default function OrderTracker({ orders, onUpdateOrderStatus, onDeleteOrde
                             >
                               <ExternalLink className="h-3.5 w-3.5" />
                               <span>แชท LINE OA 🟢</span>
-                            </button>
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleSendStatusDirectly(order);
-                              }}
-                              className="bg-teal-600 hover:bg-teal-700 text-white text-[11px] font-bold py-2.5 px-3 rounded-xl transition-all flex items-center justify-center space-x-1.5 cursor-pointer shadow-xs flex-1"
-                            >
-                              <Send className="h-3.5 w-3.5" />
-                              <span>ส่งสถานะเข้า LINE 🚀</span>
                             </button>
                           </div>
                         </div>

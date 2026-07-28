@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Order, OrderStatus, Measurements, CatalogueItem, STANDARD_SIZE_CHART } from '../types';
 import { Save, User, Sparkles, Ruler, CreditCard, ChevronRight, Check, Image as ImageIcon, UploadCloud, X, History, Database, MessageSquare } from 'lucide-react';
 import { compressImage } from '../utils/image';
@@ -13,9 +13,18 @@ interface OrderFormProps {
   onAddOrder: (newOrder: Order) => void;
   nextOrderNumber: string;
   orders?: Order[];
+  preselectedDesignId?: string;
+  onClearPreselectedDesign?: () => void;
 }
 
-export default function OrderForm({ catalogue, onAddOrder, nextOrderNumber, orders = [] }: OrderFormProps) {
+export default function OrderForm({ 
+  catalogue, 
+  onAddOrder, 
+  nextOrderNumber, 
+  orders = [],
+  preselectedDesignId,
+  onClearPreselectedDesign
+}: OrderFormProps) {
   // ฟอร์มแบ่งออกเป็น 4 ส่วนหลักเพื่อความเป็นระเบียบเรียบร้อย (Bento layout)
   const [customerName, setCustomerName] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
@@ -141,6 +150,11 @@ export default function OrderForm({ catalogue, onAddOrder, nextOrderNumber, orde
         setFabricType(selected.fabricRecommend.split(' & ')[0] || '');
         setSku(selected.sku || '');
         
+        // บันทึกรูปภาพแบบลงในรูปภาพสั่งตัดของออเดอร์ทันทีตามคำสั่งข้อ 1 ของผู้ใช้
+        if (selected.image) {
+          setCustomImage(selected.image);
+        }
+        
         // ตรวจสอบราคาเฉพาะไซส์ที่เลือกไว้ก่อนหน้า ถ้ามีให้ใส่ราคานั้นทันที
         if (selectedSize && selected.sizePrices && selected.sizePrices[selectedSize]) {
           const customPrice = selected.sizePrices[selectedSize];
@@ -169,6 +183,11 @@ export default function OrderForm({ catalogue, onAddOrder, nextOrderNumber, orde
       setDressType(matched.category === 'Abaya' ? 'อาบายะห์' : 'เดรสราตรี');
       setFabricType(matched.fabricRecommend.split(' & ')[0] || '');
       
+      // บันทึกรูปภาพแบบลงในรูปภาพสั่งตัดของออเดอร์ทันทีตามคำสั่งข้อ 1 ของผู้ใช้
+      if (matched.image) {
+        setCustomImage(matched.image);
+      }
+      
       if (selectedSize && matched.sizePrices && matched.sizePrices[selectedSize]) {
         const customPrice = matched.sizePrices[selectedSize];
         setPrice(customPrice.toString());
@@ -185,6 +204,17 @@ export default function OrderForm({ catalogue, onAddOrder, nextOrderNumber, orde
       setSelectedDesignId('custom');
     }
   };
+
+  // ตอบสนองเมื่อมีแบบชุดถูกส่งมาจากหน้าแคตตาล็อกผ่าน props
+  useEffect(() => {
+    if (preselectedDesignId && preselectedDesignId !== 'custom') {
+      handleSelectDesign(preselectedDesignId);
+      // เคลียร์ค่า preselected ใน App.tsx เพื่อไม่ให้รีเซ็ตกลับเมื่อพิมพ์ข้อมูลอื่น
+      if (onClearPreselectedDesign) {
+        onClearPreselectedDesign();
+      }
+    }
+  }, [preselectedDesignId]);
 
   const validateForm = () => {
     const tempErrors: Record<string, string> = {};
