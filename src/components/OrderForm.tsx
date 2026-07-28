@@ -3,9 +3,9 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Order, OrderStatus, STATUS_MAP, Measurements, CatalogueItem, STANDARD_SIZE_CHART } from '../types';
-import { Save, User, Sparkles, Ruler, CreditCard, ChevronRight, Check, Image as ImageIcon, UploadCloud, X, History, Database, MessageSquare } from 'lucide-react';
+import { Save, User, Sparkles, Ruler, CreditCard, ChevronRight, Check, Image as ImageIcon, UploadCloud, X, History, Database, MessageSquare, PenTool, Eraser, ShieldCheck, Lock } from 'lucide-react';
 import { compressImage } from '../utils/image';
 
 interface OrderFormProps {
@@ -92,6 +92,112 @@ export default function OrderForm({
   // งานเข้าชุด
   const [isMatchingSet, setIsMatchingSet] = useState(false);
   const [idhNumber, setIdhNumber] = useState('');
+
+  // ลายเซ็นรับออเดอร์หน้าร้าน / พนักงาน (Staff / Customer Order Signature)
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const [isDrawing, setIsDrawing] = useState(false);
+  const [hasSignatureDrawn, setHasSignatureDrawn] = useState(false);
+  const [orderSignature, setOrderSignature] = useState<string>('');
+  const [pickupSigneeName, setPickupSigneeName] = useState<string>('');
+  const [pickupSignedAt, setPickupSignedAt] = useState<string>('');
+
+  // ซิงค์ชื่อผู้เซ็นตามชื่อลูกค้าอัตโนมัติหากยังไม่ได้แก้ไข
+  useEffect(() => {
+    if (customerName && !pickupSigneeName) {
+      setPickupSigneeName(customerName);
+    }
+  }, [customerName]);
+
+  // ตั้งค่า Canvas สำหรับวาดลายเซ็น
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    const rect = canvas.getBoundingClientRect();
+    if (rect.width > 0 && rect.height > 0) {
+      canvas.width = rect.width * 2;
+      canvas.height = rect.height * 2;
+      ctx.scale(2, 2);
+      ctx.strokeStyle = '#2B1B17';
+      ctx.lineWidth = 2.5;
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+    }
+  }, []);
+
+  const getCanvasCoordinates = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return { x: 0, y: 0 };
+    const rect = canvas.getBoundingClientRect();
+
+    if ('touches' in e && e.touches.length > 0) {
+      return {
+        x: e.touches[0].clientX - rect.left,
+        y: e.touches[0].clientY - rect.top,
+      };
+    } else if ('clientX' in e) {
+      return {
+        x: e.clientX - rect.left,
+        y: e.clientY - rect.top,
+      };
+    }
+    return { x: 0, y: 0 };
+  };
+
+  const startDrawing = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
+    setIsDrawing(true);
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    const { x, y } = getCanvasCoordinates(e);
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+  };
+
+  const draw = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
+    if (!isDrawing) return;
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    const { x, y } = getCanvasCoordinates(e);
+    ctx.lineTo(x, y);
+    ctx.stroke();
+    setHasSignatureDrawn(true);
+  };
+
+  const stopDrawing = () => {
+    if (!isDrawing) return;
+    setIsDrawing(false);
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const dataUrl = canvas.toDataURL('image/png');
+    setOrderSignature(dataUrl);
+
+    const now = new Date();
+    const formattedDate = now.toLocaleDateString('th-TH', {
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric'
+    }) + ` เวลา ${now.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })} น.`;
+    setPickupSignedAt(formattedDate);
+  };
+
+  const handleClearSignature = () => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    setHasSignatureDrawn(false);
+    setOrderSignature('');
+    setPickupSignedAt('');
+  };
 
   // ค้นหาประวัติออเดอร์เดิมของลูกค้าตามเบอร์โทรศัพท์หรือชื่อ
   const getPastCustomerOrders = () => {
@@ -303,7 +409,10 @@ export default function OrderForm({
       externalOrderId: externalOrderId.trim() || undefined,
       branch: branch || 'สาขานราธิวาส',
       isMatchingSet: isMatchingSet || undefined,
-      idhNumber: isMatchingSet ? (idhNumber.trim() || undefined) : undefined
+      idhNumber: isMatchingSet ? (idhNumber.trim() || undefined) : undefined,
+      pickupSignature: orderSignature || undefined,
+      pickupSigneeName: pickupSigneeName || customerName || undefined,
+      pickupSignedAt: orderSignature ? (pickupSignedAt || new Date().toLocaleDateString('th-TH', { day: 'numeric', month: 'long', year: 'numeric' })) : undefined
     };
 
     onAddOrder(newOrder);
@@ -321,6 +430,9 @@ export default function OrderForm({
       setBranch('สาขานราธิวาส');
       setIsMatchingSet(false);
       setIdhNumber('');
+      handleClearSignature();
+      setPickupSigneeName('');
+      setPickupSignedAt('');
       setFabricColor('');
       setSku('');
       setChest('');
@@ -1817,6 +1929,85 @@ export default function OrderForm({
                 </div>
               </div>
             )}
+
+            {/* ✍️ ลายเซ็นลูกค้ายืนยันการสั่งตัด / รับมอบออเดอร์ (Staff / Customer Signature Sign-off) */}
+            <div className="pt-4 border-t border-natural-sand/40 space-y-3">
+              <div className="flex items-center justify-between">
+                <label className="block text-xs font-bold text-natural-espresso/80 flex items-center space-x-1.5">
+                  <PenTool className="h-4 w-4 text-natural-clay" />
+                  <span>ลายเซ็นลูกค้ายืนยันสั่งตัด / วางมัดจำรับออเดอร์ (Customer Acceptance Signature)</span>
+                </label>
+                {hasSignatureDrawn && (
+                  <button
+                    type="button"
+                    onClick={handleClearSignature}
+                    className="text-xs text-rose-600 hover:text-rose-800 font-medium flex items-center gap-1 px-2.5 py-1 rounded-lg hover:bg-rose-50 border border-transparent hover:border-rose-200 transition-all cursor-pointer"
+                  >
+                    <Eraser className="h-3.5 w-3.5" />
+                    <span>ล้างลายเซ็น</span>
+                  </button>
+                )}
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-natural-sand/10 p-4 rounded-2xl border border-natural-wheat/60">
+                {/* Signee Name & Info */}
+                <div className="space-y-3 md:col-span-1">
+                  <div>
+                    <label className="block text-xs font-bold text-natural-espresso mb-1">
+                      ชื่อ-นามสกุล ผู้เซ็นรับทราบ/สั่งตัด
+                    </label>
+                    <input
+                      type="text"
+                      value={pickupSigneeName}
+                      onChange={(e) => setPickupSigneeName(e.target.value)}
+                      placeholder="ระบุชื่อผู้เซ็น (ลูกค้า หรือ ผู้แทน)"
+                      className="w-full text-xs px-3 py-2 rounded-xl border border-natural-wheat bg-white focus:outline-none focus:ring-2 focus:ring-natural-clay/20 focus:border-natural-clay font-medium text-natural-espresso"
+                    />
+                  </div>
+                  <div className="text-[11px] text-natural-espresso/70 space-y-1.5 bg-white p-3 rounded-xl border border-natural-wheat/50">
+                    <p className="font-bold flex items-center gap-1 text-natural-espresso">
+                      <ShieldCheck className="h-3.5 w-3.5 text-emerald-600 inline shrink-0" />
+                      <span>ยืนยันข้อมูลรับออเดอร์หน้าร้าน</span>
+                    </p>
+                    <p className="text-[10px] leading-relaxed text-natural-espresso/60">
+                      พนักงานรับออเดอร์ (User รอง) สามารถยื่นหน้าจอให้ลูกค้าจรดลายเซ็นด้วยนิ้วมือเพื่อยืนยันแบบชุด สัดส่วนวัดตัว และยอดเงินมัดจำ
+                    </p>
+                    {pickupSignedAt && (
+                      <p className="text-[9px] font-mono text-emerald-700 font-bold pt-1 border-t border-natural-sand">
+                        เวลาเซ็น: {pickupSignedAt}
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                {/* Canvas Signature Pad */}
+                <div className="md:col-span-2 space-y-1.5">
+                  <div className="relative border-2 border-dashed border-natural-clay/40 rounded-2xl bg-white overflow-hidden shadow-inner hover:border-natural-clay transition-colors">
+                    <canvas
+                      ref={canvasRef}
+                      onMouseDown={startDrawing}
+                      onMouseMove={draw}
+                      onMouseUp={stopDrawing}
+                      onMouseLeave={stopDrawing}
+                      onTouchStart={startDrawing}
+                      onTouchMove={draw}
+                      onTouchEnd={stopDrawing}
+                      className="w-full h-36 touch-none cursor-crosshair bg-white"
+                    />
+                    {!hasSignatureDrawn && (
+                      <div className="absolute inset-0 pointer-events-none flex flex-col items-center justify-center text-natural-espresso/35 space-y-1">
+                        <PenTool className="h-6 w-6 opacity-40 animate-bounce" />
+                        <span className="text-xs font-serif font-bold">จรดลายเซ็นลูกค้ารับออเดอร์ที่นี่</span>
+                        <span className="text-[10px] text-natural-espresso/40">(ใช้นิ้วมือสัมผัสบนหน้าจอ หรือ เม้าส์ลากเซ็น)</span>
+                      </div>
+                    )}
+                    <div className="absolute bottom-1.5 right-3 pointer-events-none text-[8px] text-natural-espresso/40 font-mono">
+                      NUNUH Order Intake Digital Sign
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
 
             <div>
               <label className="block text-xs font-medium text-natural-espresso/70 mb-1">บันทึกเพิ่มเติมของดีไซเนอร์ / ช่างเย็บผ้า (Internal Notes)</label>
