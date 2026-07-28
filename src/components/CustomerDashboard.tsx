@@ -151,13 +151,15 @@ export default function CustomerDashboard({
       
       const deposit = order.deposit || 0;
       const discount = order.discount || 0;
+      const finalPayment = order.finalPaymentAmount || 0;
       const finalPrice = Math.max(0, (order.price || 0) - discount);
       
       if (order.status === OrderStatus.COMPLETED) {
         profile.totalPaid += finalPrice;
       } else {
-        profile.totalPaid += deposit;
-        profile.totalUnpaid += Math.max(0, finalPrice - deposit);
+        const totalPaidSoFar = Math.min(finalPrice, deposit + finalPayment);
+        profile.totalPaid += totalPaidSoFar;
+        profile.totalUnpaid += Math.max(0, finalPrice - totalPaidSoFar);
       }
     });
 
@@ -860,7 +862,13 @@ export default function CustomerDashboard({
                           <div><span className="font-bold">วันที่จองออเดอร์:</span> {order.orderDate}</div>
                           <div><span className="font-bold">กำหนดวันส่งมอบชุด:</span> {order.deliveryDate}</div>
                           <div><span className="font-bold">ราคาชุดตัด:</span> <span className="font-black text-natural-clay">{order.price.toLocaleString()} ฿</span></div>
-                          <div><span className="font-bold">มัดจำไว้:</span> {order.deposit.toLocaleString()} ฿ (ค้างจ่าย: {(order.price - order.deposit).toLocaleString()} ฿)</div>
+                          <div>
+                            <span className="font-bold">มัดจำไว้:</span> {order.deposit.toLocaleString()} ฿ 
+                            {order.finalPaymentAmount ? <span className="text-emerald-700 font-bold ml-1">(ชำระส่วนต่าง: {order.finalPaymentAmount.toLocaleString()} ฿)</span> : null}
+                            <span className="ml-1 text-natural-clay font-bold">
+                              (ค้างจ่าย: {Math.max(0, order.price - order.deposit - (order.discount || 0) - (order.finalPaymentAmount || 0)).toLocaleString()} ฿)
+                            </span>
+                          </div>
                         </div>
 
                         {order.notes && (

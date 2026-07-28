@@ -53,6 +53,8 @@ export interface Order {
   price: number;             // ราคาเต็ม
   deposit: number;           // มัดจำ
   discount?: number;         // ส่วนลดเพิ่มเติม
+  finalPaymentAmount?: number; // ยอดเงินที่ลูกค้าชำระส่วนต่างคงเหลือ (บาท)
+  finalPaymentDate?: string;   // วันที่ชำระเงินส่วนต่าง (YYYY-MM-DD)
   measurements: Measurements;
   status: OrderStatus;
   notes?: string;

@@ -500,7 +500,7 @@ export default function OrderTracker({ orders, catalogue = [], onUpdateOrderStat
   };
 
   const getUnpaidBalance = (order: Order) => {
-    return order.price - order.deposit;
+    return Math.max(0, order.price - order.deposit - (order.discount || 0) - (order.finalPaymentAmount || 0));
   };
 
   const statusList = Object.values(OrderStatus);
@@ -561,8 +561,10 @@ export default function OrderTracker({ orders, catalogue = [], onUpdateOrderStat
       o.price,
       o.discount || 0,
       o.deposit,
+      o.finalPaymentAmount || 0,
+      o.finalPaymentDate || '-',
       o.paymentMethod || 'เงินโอน',
-      Math.max(0, o.price - o.deposit - (o.discount || 0)),
+      Math.max(0, o.price - o.deposit - (o.discount || 0) - (o.finalPaymentAmount || 0)),
       o.measurements.chest,
       o.measurements.waist,
       o.measurements.hips,
@@ -1385,9 +1387,23 @@ export default function OrderTracker({ orders, catalogue = [], onUpdateOrderStat
                                 </span>
                               )}
                             </p>
-                            <p className="font-bold text-natural-clay bg-natural-sand/30 px-2 py-1 rounded-lg border border-natural-wheat/40 inline-block mt-1">
-                              📊 ยอดคงเหลือสุทธิวันรับชุด: {Math.max(0, order.price - order.deposit - (order.discount || 0)).toLocaleString()} บาท
-                            </p>
+                            {order.finalPaymentAmount && order.finalPaymentAmount > 0 ? (
+                              <p className="text-emerald-800 font-medium">
+                                💵 <span className="font-semibold text-emerald-900/70">จ่ายส่วนต่างเพิ่ม:</span> {order.finalPaymentAmount.toLocaleString()} บาท {order.finalPaymentDate ? `(${order.finalPaymentDate})` : ''}
+                              </p>
+                            ) : null}
+                            {(() => {
+                              const unpaid = Math.max(0, order.price - order.deposit - (order.discount || 0) - (order.finalPaymentAmount || 0));
+                              return unpaid === 0 ? (
+                                <p className="font-bold text-emerald-800 bg-emerald-50 px-2.5 py-1 rounded-lg border border-emerald-200 inline-block mt-1 text-xs">
+                                  ✓ ชำระเงินครบถ้วนแล้ว
+                                </p>
+                              ) : (
+                                <p className="font-bold text-natural-clay bg-natural-sand/30 px-2 py-1 rounded-lg border border-natural-wheat/40 inline-block mt-1">
+                                  📊 ยอดคงเหลือสุทธิวันรับชุด: {unpaid.toLocaleString()} บาท
+                                </p>
+                              );
+                            })()}
                             {order.fabricType && (
                               <p className="mt-1">
                                 🧥 <span className="font-semibold text-natural-espresso/50">ประเภทเนื้อผ้า:</span> {order.fabricType}

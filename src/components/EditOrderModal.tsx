@@ -59,6 +59,8 @@ export default function EditOrderModal({ order, onClose, onSave }: EditOrderModa
     return '';
   });
   const [deposit, setDeposit] = useState(order.deposit.toString());
+  const [finalPaymentAmount, setFinalPaymentAmount] = useState(order.finalPaymentAmount !== undefined ? order.finalPaymentAmount.toString() : '');
+  const [finalPaymentDate, setFinalPaymentDate] = useState(order.finalPaymentDate || '');
   const [paymentMethod, setPaymentMethod] = useState(order.paymentMethod || 'เงินโอน');
   const [deliveryDate, setDeliveryDate] = useState(order.deliveryDate || '');
   const [status, setStatus] = useState<OrderStatus>(order.status || OrderStatus.RECEIVED);
@@ -222,6 +224,8 @@ export default function EditOrderModal({ order, onClose, onSave }: EditOrderModa
       price: parseFloat(price) || 0,
       discount: parseFloat(discount) || 0,
       deposit: parseFloat(deposit) || 0,
+      finalPaymentAmount: finalPaymentAmount.trim() !== '' ? (parseFloat(finalPaymentAmount) || 0) : undefined,
+      finalPaymentDate: finalPaymentDate.trim() || undefined,
       paymentMethod,
       deliveryDate,
       status,
@@ -760,13 +764,86 @@ export default function EditOrderModal({ order, onClose, onSave }: EditOrderModa
                   )}
                 </div>
 
+                {(status === OrderStatus.COMPLETED || !!finalPaymentAmount) && (
+                  <>
+                    <div>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="block text-xs font-semibold text-emerald-800">ยอดเงินชำระส่วนต่างคงเหลือ (บาท)</label>
+                        {((parseFloat(price) || 0) - (parseFloat(deposit) || 0) - (parseFloat(discount) || 0)) > 0 && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const rem = Math.max(0, (parseFloat(price) || 0) - (parseFloat(deposit) || 0) - (parseFloat(discount) || 0));
+                              setFinalPaymentAmount(rem.toString());
+                              if (!finalPaymentDate) {
+                                setFinalPaymentDate(new Date().toISOString().split('T')[0]);
+                              }
+                            }}
+                            className="text-[10px] text-emerald-600 hover:text-emerald-800 underline font-medium cursor-pointer"
+                          >
+                            ชำระส่วนต่างครบ
+                          </button>
+                        )}
+                      </div>
+                      <input
+                        type="number"
+                        value={finalPaymentAmount}
+                        onChange={(e) => setFinalPaymentAmount(e.target.value)}
+                        placeholder="เช่น 250"
+                        className="w-full text-sm px-3 py-2 rounded-xl border border-emerald-300 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 bg-emerald-50/40 text-emerald-950 font-bold"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-natural-espresso/70 mb-1">วันที่ชำระเงินส่วนต่าง</label>
+                      <input
+                        type="date"
+                        value={finalPaymentDate}
+                        onChange={(e) => setFinalPaymentDate(e.target.value)}
+                        className="w-full text-sm px-3 py-2 rounded-xl border border-natural-wheat focus:outline-none focus:ring-2 focus:ring-natural-clay/20 focus:border-natural-clay bg-natural-cream/10"
+                      />
+                    </div>
+                  </>
+                )}
+
                 <div className="col-span-2 pt-1">
-                  <div className="bg-natural-sand/30 border border-natural-wheat/50 p-2.5 rounded-xl text-center text-xs text-natural-espresso">
-                    <span>ค้างจ่ายคงเหลือกำหนดรับชุด: </span>
-                    <strong className="text-natural-clay text-sm font-extrabold ml-1">
-                      {Math.max(0, (parseFloat(price) || 0) - (parseFloat(deposit) || 0) - (parseFloat(discount) || 0)).toLocaleString()} บาท
-                    </strong>
-                  </div>
+                  {(() => {
+                    const p = parseFloat(price) || 0;
+                    const d = parseFloat(deposit) || 0;
+                    const disc = parseFloat(discount) || 0;
+                    const fp = parseFloat(finalPaymentAmount) || 0;
+                    const unpaid = Math.max(0, p - d - disc - fp);
+
+                    return (
+                      <div className={`p-3 rounded-xl border text-center text-xs transition-colors ${
+                        unpaid === 0 && (d > 0 || fp > 0)
+                          ? 'bg-emerald-50/80 border-emerald-200 text-emerald-900'
+                          : 'bg-natural-sand/30 border-natural-wheat/50 text-natural-espresso'
+                      }`}>
+                        <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-xs">
+                          <span>ราคาเต็ม: <strong>{p.toLocaleString()} ฿</strong></span>
+                          {disc > 0 && <span>ส่วนลด: <strong className="text-amber-700">-{disc.toLocaleString()} ฿</strong></span>}
+                          <span>มัดจำ: <strong className="text-natural-clay">-{d.toLocaleString()} ฿</strong></span>
+                          {fp > 0 && (
+                            <span className="text-emerald-700 font-medium">
+                              ชำระส่วนต่าง: <strong>-{fp.toLocaleString()} ฿</strong> {finalPaymentDate ? `(${finalPaymentDate})` : ''}
+                            </span>
+                          )}
+                        </div>
+                        <div className="mt-2 pt-2 border-t border-natural-wheat/40 font-bold text-xs sm:text-sm">
+                          {unpaid === 0 ? (
+                            <span className="text-emerald-700 font-extrabold flex items-center justify-center space-x-1">
+                              <span>✓ ลูกค้าชำระเงินครบถ้วนเรียบร้อยแล้ว</span>
+                            </span>
+                          ) : (
+                            <span>
+                              ค้างจ่ายคงเหลือกำหนดรับชุด: <strong className="text-natural-clay text-sm font-extrabold ml-1">{unpaid.toLocaleString()} บาท</strong>
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })()}
                 </div>
               </div>
             </div>

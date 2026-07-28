@@ -4,7 +4,7 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { Order, OrderStatus, Measurements, CatalogueItem, STANDARD_SIZE_CHART } from '../types';
+import { Order, OrderStatus, STATUS_MAP, Measurements, CatalogueItem, STANDARD_SIZE_CHART } from '../types';
 import { Save, User, Sparkles, Ruler, CreditCard, ChevronRight, Check, Image as ImageIcon, UploadCloud, X, History, Database, MessageSquare } from 'lucide-react';
 import { compressImage } from '../utils/image';
 
@@ -81,6 +81,9 @@ export default function OrderForm({
   const [customerPhotoSide, setCustomerPhotoSide] = useState('');
   const [customerPhotoBack, setCustomerPhotoBack] = useState('');
   const [paymentMethod, setPaymentMethod] = useState('เงินโอน');
+  const [status, setStatus] = useState<OrderStatus>(OrderStatus.RECEIVED);
+  const [finalPaymentAmount, setFinalPaymentAmount] = useState('');
+  const [finalPaymentDate, setFinalPaymentDate] = useState('');
   const [slipImage, setSlipImage] = useState<string>('');
 
   const [isSuccess, setIsSuccess] = useState(false);
@@ -276,8 +279,10 @@ export default function OrderForm({
       price: parseInt(price),
       deposit: parseInt(deposit),
       discount: discount ? parseInt(discount) : 0,
+      finalPaymentAmount: finalPaymentAmount.trim() !== '' ? (parseInt(finalPaymentAmount) || 0) : undefined,
+      finalPaymentDate: finalPaymentDate.trim() || undefined,
       measurements: measurementsData,
-      status: OrderStatus.RECEIVED,
+      status: status || OrderStatus.RECEIVED,
       notes: notes || undefined,
       selectedDesignId: selectedDesignId !== 'custom' ? selectedDesignId : undefined,
       sku: sku.trim() || undefined,
@@ -1601,6 +1606,21 @@ export default function OrderForm({
               </div>
 
               <div>
+                <label className="block text-xs font-medium text-natural-espresso/70 mb-1">สถานะเริ่มต้นของออเดอร์</label>
+                <select
+                  value={status}
+                  onChange={(e) => setStatus(e.target.value as OrderStatus)}
+                  className="w-full text-sm px-3 py-2 rounded-xl border border-natural-wheat focus:outline-none focus:ring-2 focus:ring-natural-clay/20 focus:border-natural-clay bg-natural-cream/20 font-bold cursor-pointer"
+                >
+                  {Object.values(OrderStatus).map((os) => (
+                    <option key={os} value={os}>
+                      {STATUS_MAP[os].label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
                 <label className="block text-xs font-medium text-natural-espresso/70 mb-1">กำหนดส่งชุดให้ลูกค้า <span className="text-natural-clay">*</span></label>
                 <input
                   type="date"
@@ -1711,31 +1731,86 @@ export default function OrderForm({
               )}
             </div>
 
-            {/* กล่องแสดงยอดสุทธิหลังหักมัดจำ */}
-            {(price || deposit || discount) && (
+            {/* ชำระส่วนต่างคงเหลือ (ถ้ามี - เฉพาะเมื่อถึงขั้นตอนที่ 7 ส่งมอบสำเร็จ) */}
+            {(status === OrderStatus.COMPLETED || !!finalPaymentAmount) && (
+              <div className="pt-4 border-t border-natural-sand/40 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-xs font-bold text-emerald-800">ยอดเงินชำระส่วนต่างคงเหลือ (บาท)</label>
+                    {((parseFloat(price) || 0) - (parseFloat(deposit) || 0) - (parseFloat(discount) || 0)) > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const rem = Math.max(0, (parseFloat(price) || 0) - (parseFloat(deposit) || 0) - (parseFloat(discount) || 0));
+                          setFinalPaymentAmount(rem.toString());
+                          if (!finalPaymentDate) {
+                            setFinalPaymentDate(new Date().toISOString().split('T')[0]);
+                          }
+                        }}
+                        className="text-[10px] text-emerald-600 hover:text-emerald-800 underline font-medium cursor-pointer"
+                      >
+                        ชำระส่วนต่างครบ
+                      </button>
+                    )}
+                  </div>
+                  <input
+                    type="number"
+                    value={finalPaymentAmount}
+                    onChange={(e) => setFinalPaymentAmount(e.target.value)}
+                    placeholder="เช่น 250 (เว้นว่างไว้ถ้ายังไม่จ่าย)"
+                    className="w-full text-sm px-3 py-2 rounded-xl border border-emerald-300 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 bg-emerald-50/40 text-emerald-950 font-bold"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-natural-espresso/80 mb-1">วันที่ชำระเงินส่วนต่าง</label>
+                  <input
+                    type="date"
+                    value={finalPaymentDate}
+                    onChange={(e) => setFinalPaymentDate(e.target.value)}
+                    className="w-full text-sm px-3 py-2 rounded-xl border border-natural-wheat focus:outline-none focus:ring-2 focus:ring-natural-clay/20 focus:border-natural-clay bg-natural-cream/20"
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* กล่องแสดงยอดสุทธิหลังหักมัดจำและส่วนต่าง */}
+            {(price || deposit || discount || finalPaymentAmount) && (
               <div className="bg-natural-sand/20 p-4 rounded-xl border border-natural-wheat/50 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
                 <div className="space-y-0.5">
                   <p className="text-xs font-bold text-natural-espresso">📊 สรุปยอดเงินคงเหลือสุทธิ (Net Balance Summary)</p>
-                  <p className="text-[10px] text-natural-espresso/60">ยอดคงเหลือสุทธิที่ลูกค้าต้องชำระเพิ่มในวันรับชุด</p>
+                  <p className="text-[10px] text-natural-espresso/60">สรุปยอดชำระ มัดจำ ส่วนต่างคงเหลือ และยอดค้างชำระ</p>
                 </div>
-                <div className="flex flex-wrap gap-3 text-xs w-full sm:w-auto justify-end">
-                  <div className="bg-white px-2.5 py-1.5 rounded-lg border border-natural-wheat/40 text-center min-w-[80px] flex-1 sm:flex-initial">
-                    <span className="block text-[9px] text-natural-espresso/45 font-bold uppercase">ราคาค่าชุด</span>
+                <div className="flex flex-wrap gap-2 text-xs w-full sm:w-auto justify-end">
+                  <div className="bg-white px-2.5 py-1.5 rounded-lg border border-natural-wheat/40 text-center min-w-[75px] flex-1 sm:flex-initial">
+                    <span className="block text-[9px] text-natural-espresso/45 font-bold uppercase">ราคาชุด</span>
                     <strong className="text-xs text-natural-espresso font-mono font-extrabold">{(parseFloat(price) || 0).toLocaleString()} ฿</strong>
                   </div>
                   {parseFloat(discount) > 0 && (
-                    <div className="bg-white px-2.5 py-1.5 rounded-lg border border-natural-wheat/40 text-center min-w-[80px] flex-1 sm:flex-initial">
+                    <div className="bg-white px-2.5 py-1.5 rounded-lg border border-natural-wheat/40 text-center min-w-[75px] flex-1 sm:flex-initial">
                       <span className="block text-[9px] text-amber-600 font-bold uppercase">ส่วนลด</span>
                       <strong className="text-xs text-amber-600 font-mono font-extrabold">-{(parseFloat(discount) || 0).toLocaleString()} ฿</strong>
                     </div>
                   )}
-                  <div className="bg-white px-2.5 py-1.5 rounded-lg border border-natural-wheat/40 text-center min-w-[80px] flex-1 sm:flex-initial">
-                    <span className="block text-[9px] text-natural-clay/70 font-bold uppercase">หักค่ามัดจำ</span>
+                  <div className="bg-white px-2.5 py-1.5 rounded-lg border border-natural-wheat/40 text-center min-w-[75px] flex-1 sm:flex-initial">
+                    <span className="block text-[9px] text-natural-clay/70 font-bold uppercase">มัดจำ</span>
                     <strong className="text-xs text-natural-clay font-mono font-extrabold">-{(parseFloat(deposit) || 0).toLocaleString()} ฿</strong>
                   </div>
-                  <div className="bg-natural-clay text-white px-3 py-1.5 rounded-lg text-center min-w-[110px] flex-1 sm:flex-initial shadow-xs">
-                    <span className="block text-[9px] text-white/75 font-bold uppercase">คงเหลือวันรับชุด</span>
-                    <strong className="text-xs font-mono font-extrabold">{Math.max(0, (parseFloat(price) || 0) - (parseFloat(deposit) || 0) - (parseFloat(discount) || 0)).toLocaleString()} ฿</strong>
+                  {parseFloat(finalPaymentAmount) > 0 && (
+                    <div className="bg-emerald-100/70 border border-emerald-300 px-2.5 py-1.5 rounded-lg text-center min-w-[85px] flex-1 sm:flex-initial">
+                      <span className="block text-[9px] text-emerald-800 font-bold uppercase">ชำระส่วนต่าง</span>
+                      <strong className="text-xs text-emerald-900 font-mono font-extrabold">-{(parseFloat(finalPaymentAmount) || 0).toLocaleString()} ฿</strong>
+                    </div>
+                  )}
+                  <div className={`px-3 py-1.5 rounded-lg text-center min-w-[100px] flex-1 sm:flex-initial shadow-xs ${
+                    Math.max(0, (parseFloat(price) || 0) - (parseFloat(deposit) || 0) - (parseFloat(discount) || 0) - (parseFloat(finalPaymentAmount) || 0)) === 0
+                      ? 'bg-emerald-600 text-white'
+                      : 'bg-natural-clay text-white'
+                  }`}>
+                    <span className="block text-[9px] text-white/80 font-bold uppercase">ค้างชำระ</span>
+                    <strong className="text-xs font-mono font-extrabold">
+                      {Math.max(0, (parseFloat(price) || 0) - (parseFloat(deposit) || 0) - (parseFloat(discount) || 0) - (parseFloat(finalPaymentAmount) || 0)).toLocaleString()} ฿
+                    </strong>
                   </div>
                 </div>
               </div>

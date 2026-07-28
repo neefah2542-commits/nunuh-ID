@@ -114,8 +114,9 @@ export default function DashboardStats({ orders, onSelectTab }: DashboardStatsPr
     });
     
     const priceSum = matchingOrders.reduce((sum, o) => sum + (o.price || 0), 0);
-    const depositSum = matchingOrders.reduce((sum, o) => sum + (o.deposit || 0), 0);
-    const unpaidSum = priceSum - depositSum;
+    const depositSum = matchingOrders.reduce((sum, o) => sum + (o.deposit || 0) + (o.finalPaymentAmount || 0), 0);
+    const discountSum = matchingOrders.reduce((sum, o) => sum + (o.discount || 0), 0);
+    const unpaidSum = Math.max(0, priceSum - discountSum - depositSum);
     const count = matchingOrders.length;
     
     let icon = Wallet;
@@ -170,8 +171,9 @@ export default function DashboardStats({ orders, onSelectTab }: DashboardStatsPr
   });
   
   const otherPriceSum = otherOrders.reduce((sum, o) => sum + (o.price || 0), 0);
-  const otherDepositSum = otherOrders.reduce((sum, o) => sum + (o.deposit || 0), 0);
-  const otherUnpaidSum = otherPriceSum - otherDepositSum;
+  const otherDepositSum = otherOrders.reduce((sum, o) => sum + (o.deposit || 0) + (o.finalPaymentAmount || 0), 0);
+  const otherDiscountSum = otherOrders.reduce((sum, o) => sum + (o.discount || 0), 0);
+  const otherUnpaidSum = Math.max(0, otherPriceSum - otherDiscountSum - otherDepositSum);
   const otherCount = otherOrders.length;
 
   if (otherCount > 0) {

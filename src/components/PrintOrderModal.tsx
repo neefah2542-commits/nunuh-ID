@@ -20,7 +20,8 @@ export default function PrintOrderModal({ order, isOpen, onClose }: PrintOrderMo
   );
 
   const discountVal = order.discount || 0;
-  const unpaidAmount = Math.max(0, order.price - order.deposit - discountVal);
+  const finalPayVal = order.finalPaymentAmount || 0;
+  const unpaidAmount = Math.max(0, order.price - order.deposit - discountVal - finalPayVal);
 
   // ดึงรูปภาพสำหรับพิมพ์ (จากอัปโหลด หรือจากแคตตาล็อก หรือรูปสเก็ตช์นางแบบตั้งต้น)
   let displayImage = order.customImage;
@@ -609,9 +610,21 @@ export default function PrintOrderModal({ order, isOpen, onClose }: PrintOrderMo
                       <span className="block text-[9px] text-natural-clay font-bold uppercase">หักค่ามัดจำ</span>
                       <strong className="text-sm font-mono font-bold text-natural-clay">-{order.deposit.toLocaleString()} ฿</strong>
                     </div>
-                    <div className="bg-natural-clay text-white p-2 rounded-xl min-w-[110px] shadow-xs col-span-2 sm:col-span-1">
-                      <span className="block text-[9px] text-white/75 font-bold uppercase">คงค้าง ณ วันรับชุด</span>
-                      <strong className="text-sm font-mono font-extrabold">{unpaidAmount.toLocaleString()} ฿</strong>
+                    {!!order.finalPaymentAmount && (
+                      <div className="bg-emerald-50 border border-emerald-200 p-2 rounded-xl min-w-[80px]">
+                        <span className="block text-[9px] text-emerald-800 font-bold uppercase">ชำระส่วนต่าง</span>
+                        <strong className="text-sm font-mono font-bold text-emerald-800">-{order.finalPaymentAmount.toLocaleString()} ฿</strong>
+                      </div>
+                    )}
+                    <div className={`p-2 rounded-xl min-w-[110px] shadow-xs col-span-2 sm:col-span-1 ${
+                      unpaidAmount === 0 ? 'bg-emerald-700 text-white' : 'bg-natural-clay text-white'
+                    }`}>
+                      <span className="block text-[9px] text-white/75 font-bold uppercase">
+                        {unpaidAmount === 0 ? 'สถานะการชำระ' : 'คงค้าง ณ วันรับชุด'}
+                      </span>
+                      <strong className="text-sm font-mono font-extrabold">
+                        {unpaidAmount === 0 ? 'ชำระครบถ้วน ✓' : `${unpaidAmount.toLocaleString()} ฿`}
+                      </strong>
                     </div>
                   </div>
                 </div>
