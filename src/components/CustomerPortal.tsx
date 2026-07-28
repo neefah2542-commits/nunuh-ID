@@ -268,137 +268,65 @@ export default function CustomerPortal({
     }
   };
 
-  // Auto-search if search param is provided in URL or stored in localStorage
+  // Auto-search if search param is provided in URL
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const urlSearchParam = params.get('search');
     const urlLineUserIdParam = params.get('lineUserId');
     
-    let lineUserIdParam = urlLineUserIdParam || localStorage.getItem('nunuh_customer_portal_line_userid');
-    if (urlLineUserIdParam) {
-      localStorage.setItem('nunuh_customer_portal_line_userid', urlLineUserIdParam);
-    }
+    // Only auto-trigger search on initial load if URL parameters are explicitly provided
+    if (urlSearchParam || urlLineUserIdParam) {
+      if (urlLineUserIdParam) {
+        localStorage.setItem('nunuh_customer_portal_line_userid', urlLineUserIdParam);
+        setIsLineLocked(true);
+      }
 
-    // Priority 1: If LINE User ID is present (saved or param), lock session strictly to this LINE account
-    if (lineUserIdParam) {
-      setIsLineLocked(true);
-      
-      // Get all orders belonging strictly to this LINE User ID
-      let userOrders = orders.filter(order => order.lineUserId === lineUserIdParam);
-      let connectedPhones = Array.from(
-        new Set(userOrders.map(o => o.customerPhone.replace(/[\s-()]/g, '')).filter(Boolean))
-      );
+      let lineUserIdParam = urlLineUserIdParam || localStorage.getItem('nunuh_customer_portal_line_userid');
+      let userOrders: Order[] = [];
 
-      const queryToUse = urlSearchParam || localStorage.getItem('nunuh_customer_portal_phone');
+      if (lineUserIdParam) {
+        userOrders = orders.filter(order => order.lineUserId === lineUserIdParam);
+      }
 
-      // If user has no bound orders yet, attempt to find and bind matching order by search/phone
-      if (userOrders.length === 0 && queryToUse) {
+      const queryToUse = urlSearchParam || '';
+      if (queryToUse) {
+        setSearchQuery(queryToUse);
         const query = queryToUse.trim().toLowerCase();
         const cleanQuery = query.replace(/[\s-()]/g, '');
-        
-        const matchedUnbound = orders.filter(order => {
+
+        const matched = orders.filter(order => {
           const cleanPhone = order.customerPhone.replace(/[\s-()]/g, '');
           const orderNum = order.orderNumber.toLowerCase();
-          const matchesQuery = cleanPhone === cleanQuery || orderNum === query || cleanPhone.includes(cleanQuery) || orderNum.includes(query);
-          const isAvailable = !order.lineUserId || order.lineUserId === lineUserIdParam;
-          return matchesQuery && isAvailable;
+          const customerName = order.customerName.toLowerCase();
+          return (
+            cleanPhone === cleanQuery || 
+            orderNum === query || 
+            customerName.includes(query) ||
+            (order.sku && order.sku.toLowerCase().includes(query))
+          );
         });
 
-        if (matchedUnbound.length > 0) {
-          const firstPhone = matchedUnbound[0].customerPhone.replace(/[\s-()]/g, '');
-          userOrders = orders.filter(o => o.customerPhone.replace(/[\s-()]/g, '') === firstPhone && (!o.lineUserId || o.lineUserId === lineUserIdParam));
-          connectedPhones = [firstPhone];
-
-          // Auto-bind lineUserId to these orders so they are persistently connected
-          if (onUpdateOrders) {
-            const updated = orders.map(o => {
-              if (userOrders.some(m => m.id === o.id) && !o.lineUserId) {
-                return { ...o, lineUserId: lineUserIdParam };
-              }
-              return o;
-            });
-            onUpdateOrders(updated);
-          }
-        }
-      }
-
-      if (connectedPhones.length > 0) {
-        localStorage.setItem('nunuh_customer_portal_connected_phones', JSON.stringify(connectedPhones));
-        localStorage.setItem('nunuh_customer_portal_phone', connectedPhones[0]);
-      }
-
-      if (userOrders.length > 0) {
-        if (urlSearchParam) {
-          setSearchQuery(urlSearchParam);
-          const query = urlSearchParam.trim().toLowerCase();
-          const cleanQuery = query.replace(/[\s-()]/g, '');
-          const matched = userOrders.filter(order => {
-            const cleanPhone = order.customerPhone.replace(/[\s-()]/g, '');
-            const orderNum = order.orderNumber.toLowerCase();
-            const customerName = order.customerName.toLowerCase();
-            return (
-              cleanPhone === cleanQuery || 
-              orderNum === query || 
-              customerName.includes(query) ||
-              (order.sku && order.sku.toLowerCase().includes(query))
-            );
-          });
-          setSearchedOrders(matched);
+        if (matched.length > 0) {
+          const matchedPhone = matched[0].customerPhone.replace(/[\s-()]/g, '');
+          localStorage.setItem('nunuh_customer_portal_phone', matchedPhone);
+          const allMatchedOrders = orders.filter(o => o.customerPhone.replace(/[\s-()]/g, '') === matchedPhone);
+          setSearchedOrders(allMatchedOrders);
         } else {
-          setSearchedOrders(userOrders);
+          setSearchedOrders([]);
         }
         setHasSearched(true);
-      } else {
-        // No bound orders found yet - leave search bar ready for user to enter phone/order
-        if (urlSearchParam) setSearchQuery(urlSearchParam);
-        setSearchedOrders(null);
-        setHasSearched(false);
-      }
-      return;
-    }
-
-    // Priority 2: Standard search query (by phone or order number)
-    const savedPhone = urlSearchParam || localStorage.getItem('nunuh_customer_portal_phone');
-    if (savedPhone) {
-      if (urlSearchParam) {
-        localStorage.setItem('nunuh_customer_portal_phone', urlSearchParam);
-      }
-      setSearchQuery(savedPhone);
-      
-      const query = savedPhone.trim().toLowerCase();
-      const cleanQuery = query.replace(/[\s-()]/g, '');
-
-      // SECURITY CHECK: Strictly get orders matching this customer's phone number
-      const savedLineUserId = localStorage.getItem('nunuh_customer_portal_line_userid');
-      const matched = orders.filter(order => {
-        const cleanPhone = order.customerPhone.replace(/[\s-()]/g, '');
-        const orderNum = order.orderNumber.toLowerCase();
-        const matchesQuery = cleanPhone === cleanQuery || orderNum === query || cleanPhone.includes(cleanQuery) || orderNum.includes(query);
-        if (isCustomerLocked && order.lineUserId && savedLineUserId) {
-          return matchesQuery && order.lineUserId === savedLineUserId;
-        }
-        return matchesQuery;
-      });
-
-      if (matched.length > 0) {
-        const matchedPhone = matched[0].customerPhone.replace(/[\s-()]/g, '');
-        localStorage.setItem('nunuh_customer_portal_phone', matchedPhone);
-
-        // Lock session to all orders sharing this exact phone number
-        const userOrders = orders.filter(o => o.customerPhone.replace(/[\s-()]/g, '') === matchedPhone);
-        
-        const orderWithLineId = userOrders.find(o => o.lineUserId);
-        if (orderWithLineId && orderWithLineId.lineUserId) {
-          localStorage.setItem('nunuh_customer_portal_line_userid', orderWithLineId.lineUserId);
-          setIsLineLocked(true);
-        }
-
+      } else if (userOrders.length > 0) {
         setSearchedOrders(userOrders);
         setHasSearched(true);
       } else {
-        setSearchedOrders([]);
-        setHasSearched(true);
+        setSearchedOrders(null);
+        setHasSearched(false);
       }
+    } else {
+      // No URL parameters provided -> Start with empty state ("หน้าว่าง")
+      setSearchedOrders(null);
+      setHasSearched(false);
+      setSearchQuery('');
     }
   }, [orders, isCustomerLocked]);
 
@@ -753,6 +681,46 @@ export default function CustomerPortal({
 
         {/* Search Results Display */}
         <div className="space-y-6">
+          {/* Initial Empty State - Before Searching */}
+          {(!hasSearched || searchedOrders === null) && (
+            <div className="bg-gradient-to-br from-[#fcfbf9] via-white to-[#f7f5ef] border-2 border-dashed border-natural-wheat/80 rounded-3xl p-8 sm:p-12 text-center space-y-6 shadow-2xs animate-fade-in my-2">
+              <div className="w-16 h-16 bg-natural-sand/50 text-natural-espresso rounded-2xl flex items-center justify-center mx-auto shadow-inner border border-natural-wheat/60">
+                <Search className="h-8 w-8 text-natural-clay" />
+              </div>
+
+              <div className="max-w-lg mx-auto space-y-2">
+                <h3 className="font-serif font-extrabold text-xl sm:text-2xl text-natural-espresso">
+                  ศูนย์ค้นหาและติดตามคิวงานตัดเย็บ (Customer Portal)
+                </h3>
+                <p className="text-xs sm:text-sm text-natural-espresso/70 leading-relaxed">
+                  กรุณากรอก <strong className="text-natural-espresso underline">เบอร์โทรศัพท์มือถือ 10 หลัก</strong> หรือ <strong className="text-natural-espresso underline">หมายเลขคิวออเดอร์</strong> ในช่องค้นหาด้านบน แล้วกดปุ่ม <strong>"ค้นหารายการออเดอร์"</strong> เพื่อตรวจสอบรายละเอียดโปรไฟล์ สัดส่วนวัดตัว และติดตามคิวความคืบหน้าคิวงานตัดเย็บค่ะ
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-xl mx-auto pt-2 text-left">
+                <div className="bg-white/90 p-4 rounded-2xl border border-natural-wheat/60 shadow-3xs flex items-start space-x-3">
+                  <div className="p-2 bg-emerald-50 text-emerald-700 rounded-xl shrink-0 mt-0.5">
+                    <Phone className="h-4 w-4" />
+                  </div>
+                  <div>
+                    <p className="font-extrabold text-xs text-natural-espresso">ค้นหาด้วยเบอร์มือถือ</p>
+                    <p className="text-[11px] text-natural-espresso/60 mt-0.5">พิมพ์เบอร์มือถือที่ลงทะเบียนสั่งตัด เช่น <span className="font-mono text-natural-clay font-bold">0801462230</span></p>
+                  </div>
+                </div>
+
+                <div className="bg-white/90 p-4 rounded-2xl border border-natural-wheat/60 shadow-3xs flex items-start space-x-3">
+                  <div className="p-2 bg-amber-50 text-amber-700 rounded-xl shrink-0 mt-0.5">
+                    <FileText className="h-4 w-4" />
+                  </div>
+                  <div>
+                    <p className="font-extrabold text-xs text-natural-espresso">ค้นหาด้วยเลขคิวออเดอร์</p>
+                    <p className="text-[11px] text-natural-espresso/60 mt-0.5">พิมพ์รหัสออเดอร์ของคุณ เช่น <span className="font-mono text-natural-clay font-bold">NU-26001</span></p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
           {hasSearched && searchedOrders && searchedOrders.length > 0 && (() => {
             const mainOrder = searchedOrders[0];
             const cName = mainOrder.customerName;

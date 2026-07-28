@@ -393,9 +393,18 @@ export default function PrintOrderModal({ order, isOpen, onClose }: PrintOrderMo
                       <p className="text-[9px] text-natural-espresso/40 font-bold uppercase">( ผู้รับเงิน )</p>
                     </div>
                     <div className="text-center w-36 space-y-1">
-                      <div className="border-b border-natural-espresso/30 h-10 w-full"></div>
-                      <p className="font-semibold text-natural-espresso">ลงชื่อ: .......................................</p>
-                      <p className="text-[9px] text-natural-espresso/40 font-bold uppercase">( ลูกค้าผู้ชำระเงิน )</p>
+                      {order.pickupSignature ? (
+                        <div className="h-10 w-full flex flex-col items-center justify-end">
+                          <img src={order.pickupSignature} alt="Customer Signature" className="h-9 max-w-full object-contain" />
+                        </div>
+                      ) : (
+                        <div className="border-b border-natural-espresso/30 h-10 w-full"></div>
+                      )}
+                      <p className="font-semibold text-natural-espresso text-[10px]">
+                        {order.pickupSigneeName || order.customerName}
+                      </p>
+                      <p className="text-[9px] text-natural-espresso/40 font-bold uppercase">( ลูกค้าผู้ชำระเงิน / รับมอบชุด )</p>
+                      {order.pickupSignedAt && <p className="text-[8px] text-emerald-700 font-mono">{order.pickupSignedAt}</p>}
                     </div>
                   </div>
                 </div>
@@ -683,9 +692,18 @@ export default function PrintOrderModal({ order, isOpen, onClose }: PrintOrderMo
                       <p className="text-[9px] text-natural-espresso/40 font-bold uppercase">( ดีไซเนอร์ / ช่างผู้บันทึก )</p>
                     </div>
                     <div className="text-center w-40 space-y-1">
-                      <div className="border-b border-natural-espresso/30 h-10 w-full"></div>
-                      <p className="font-semibold text-natural-espresso">ลงชื่อ: .......................................</p>
-                      <p className="text-[9px] text-natural-espresso/40 font-bold uppercase">( ลายมือชื่อลูกค้าผู้สั่งตัด )</p>
+                      {order.pickupSignature ? (
+                        <div className="h-10 w-full flex flex-col items-center justify-end">
+                          <img src={order.pickupSignature} alt="Customer Signature" className="h-10 max-w-full object-contain" />
+                        </div>
+                      ) : (
+                        <div className="border-b border-natural-espresso/30 h-10 w-full"></div>
+                      )}
+                      <p className="font-semibold text-natural-espresso text-[10px]">
+                        {order.pickupSigneeName || order.customerName}
+                      </p>
+                      <p className="text-[9px] text-natural-espresso/40 font-bold uppercase">( ลายมือชื่อลูกค้าผู้สั่งตัด / รับมอบชุด )</p>
+                      {order.pickupSignedAt && <p className="text-[8px] text-emerald-700 font-mono">{order.pickupSignedAt}</p>}
                     </div>
                   </div>
                 </div>

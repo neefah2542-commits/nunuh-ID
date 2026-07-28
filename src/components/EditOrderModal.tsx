@@ -5,7 +5,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Order, OrderStatus, Measurements, STATUS_MAP, STANDARD_SIZE_CHART } from '../types';
-import { X, Save, User, Sparkles, Ruler, CreditCard, Image as ImageIcon, UploadCloud, Check } from 'lucide-react';
+import { X, Save, User, Sparkles, Ruler, CreditCard, Image as ImageIcon, UploadCloud, Check, Lock, ShieldCheck } from 'lucide-react';
 import { INITIAL_CATALOGUE } from '../initialData';
 import { compressImage } from '../utils/image';
 
@@ -181,6 +181,11 @@ export default function EditOrderModal({ order, onClose, onSave }: EditOrderModa
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
+    if (order.isLocked || order.pickupSignature) {
+      alert('🔒 ออเดอร์นี้ถูกล็อกถาวรเนื่องจากลูกค้าเซ็นรับมอบชุดเรียบร้อยแล้ว ห้ามแก้ไขข้อมูลเด็ดขาด');
+      return;
+    }
+
     if (!customerName.trim() || !customerPhone.trim()) {
       alert('กรุณากรอกชื่อและเบอร์โทรศัพท์ของลูกค้า');
       return;
@@ -271,7 +276,22 @@ export default function EditOrderModal({ order, onClose, onSave }: EditOrderModa
 
         {/* Modal Form Content */}
         <form onSubmit={handleSubmit} className="overflow-y-auto p-6 space-y-6 flex-1">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {(order.isLocked || order.pickupSignature) && (
+            <div className="bg-amber-50 border-2 border-amber-300 rounded-2xl p-4 flex items-start space-x-3 text-amber-950 shadow-sm">
+              <Lock className="h-5 w-5 text-amber-700 shrink-0 mt-0.5" />
+              <div className="space-y-1 text-xs">
+                <p className="font-bold text-sm text-amber-950 flex items-center gap-1.5">
+                  <span>🔒 ไม่สามารถแก้ไขข้อมูลออเดอร์นี้ได้ (Locked Order)</span>
+                </p>
+                <p className="text-amber-900 leading-relaxed">
+                  ออเดอร์นี้ได้รับการเซ็นรับมอบชุดโดยลูกค้าเรียบร้อยแล้วเมื่อ <strong>{order.pickupSignedAt || 'ไม่ระบุวันเวลา'}</strong> โดย <strong>คุณ{order.pickupSigneeName || order.customerName}</strong> ระบบได้ทำการ <strong className="underline">ล็อกข้อมูลถาวร ห้ามแก้ไขหรือลบทุกกรณี</strong> เพื่อใช้เป็นหลักฐานทางกฎหมายและการรับประกัน
+                </p>
+              </div>
+            </div>
+          )}
+
+          <fieldset disabled={order.isLocked || !!order.pickupSignature} className="contents">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             
             {/* Section 1: Customer Information */}
             <div className="bg-white p-5 rounded-2xl border border-natural-wheat shadow-xs space-y-4">
@@ -1342,6 +1362,8 @@ export default function EditOrderModal({ order, onClose, onSave }: EditOrderModa
 
           </div>
 
+          </fieldset>
+
           {/* Form Actions */}
           <div className="pt-6 border-t border-natural-sand flex items-center justify-end space-x-3 shrink-0">
             <button
@@ -1349,15 +1371,17 @@ export default function EditOrderModal({ order, onClose, onSave }: EditOrderModa
               onClick={onClose}
               className="px-6 py-2.5 rounded-xl border border-natural-wheat hover:bg-natural-sand text-sm font-bold text-natural-espresso transition-all cursor-pointer"
             >
-              ยกเลิก (Cancel)
+              {(order.isLocked || order.pickupSignature) ? 'ปิดหน้าต่าง' : 'ยกเลิก (Cancel)'}
             </button>
-            <button
-              type="submit"
-              className="px-8 py-2.5 rounded-xl bg-natural-espresso hover:bg-stone-800 text-white text-sm font-bold shadow-sm transition-all flex items-center space-x-1.5 cursor-pointer"
-            >
-              <Save className="h-4 w-4" />
-              <span>บันทึกการแก้ไข (Save Changes)</span>
-            </button>
+            {!(order.isLocked || order.pickupSignature) && (
+              <button
+                type="submit"
+                className="px-8 py-2.5 rounded-xl bg-natural-espresso hover:bg-stone-800 text-white text-sm font-bold shadow-sm transition-all flex items-center space-x-1.5 cursor-pointer"
+              >
+                <Save className="h-4 w-4" />
+                <span>บันทึกการแก้ไข (Save Changes)</span>
+              </button>
+            )}
           </div>
         </form>
 

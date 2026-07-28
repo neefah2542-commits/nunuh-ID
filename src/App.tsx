@@ -472,6 +472,11 @@ export default function App() {
 
   // ปรับปรุงสถานะติดตามงาน (Update Status)
   const handleUpdateOrderStatus = (orderId: string, nextStatus: OrderStatus) => {
+    const target = orders.find(o => o.id === orderId);
+    if (target?.isLocked || target?.pickupSignature) {
+      alert("🔒 ไม่สามารถเปลี่ยนสถานะได้ เนื่องจากออเดอร์นี้ถูกล็อกถาวรหลังจากลูกค้าเซ็นรับมอบชุดเรียบร้อยแล้ว");
+      return;
+    }
     const updated = orders.map(o => {
       if (o.id === orderId) {
         return { ...o, status: nextStatus, updatedAt: Date.now() };
@@ -483,6 +488,12 @@ export default function App() {
 
   // ลบออเดอร์
   const handleDeleteOrder = async (orderId: string) => {
+    const target = orders.find(o => o.id === orderId);
+    if (target?.isLocked || target?.pickupSignature) {
+      alert("🔒 ห้ามลบออเดอร์นี้เด็ดขาด! เนื่องจากลูกค้าได้เซ็นรับมอบชุดและระบบได้ล็อกข้อมูลถาวรแล้วเพื่อใช้เป็นหลักฐาน");
+      return;
+    }
+
     // 1. เพิ่ม ID ไปยังรายการที่ถูกลบในเครื่อง เพื่อป้องกันการคืนชีพเมื่อผสาน
     const deletedIdsStr = localStorage.getItem('nunuh_deleted_order_ids') || '[]';
     let deletedIds: string[] = [];
@@ -510,8 +521,32 @@ export default function App() {
 
   // แก้ไขรายละเอียดออเดอร์ทั้งหมด
   const handleUpdateOrder = (updatedOrder: Order) => {
+    const target = orders.find(o => o.id === updatedOrder.id);
+    if (target?.isLocked || target?.pickupSignature) {
+      alert("🔒 ออเดอร์นี้ถูกล็อกถาวรเนื่องจากลูกค้าเซ็นรับมอบชุดเรียบร้อยแล้ว ห้ามแก้ไขข้อมูลเด็ดขาด");
+      return;
+    }
     const orderWithTime = { ...updatedOrder, updatedAt: Date.now() };
     const updated = orders.map(o => o.id === updatedOrder.id ? orderWithTime : o);
+    saveOrdersToStorage(updated);
+  };
+
+  // บันทึกลายเซ็นลูกค้ารับมอบชุด และล็อกออเดอร์ถาวร
+  const handleConfirmPickupSignature = (orderId: string, signatureDataUrl: string, signeeName: string, signedAt: string) => {
+    const updated = orders.map(o => {
+      if (o.id === orderId) {
+        return {
+          ...o,
+          pickupSignature: signatureDataUrl,
+          pickupSigneeName: signeeName,
+          pickupSignedAt: signedAt,
+          isLocked: true,
+          status: OrderStatus.COMPLETED,
+          updatedAt: Date.now()
+        };
+      }
+      return o;
+    });
     saveOrdersToStorage(updated);
   };
 
@@ -947,6 +982,7 @@ export default function App() {
                     onUpdateOrderStatus={handleUpdateOrderStatus}
                     onDeleteOrder={handleDeleteOrder}
                     onEditOrder={handleUpdateOrder}
+                    onConfirmPickupSignature={handleConfirmPickupSignature}
                   />
                 </div>
               )}

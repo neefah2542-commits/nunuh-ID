@@ -77,6 +77,10 @@ export interface Order {
   isMatchingSet?: boolean;     // ระบุว่าเป็นงานเข้าชุด
   idhNumber?: string;          // เลข IDH สำหรับงานเข้าชุด (เช่น IDH-88)
   updatedAt?: number;          // วันที่อัปเดตล่าสุดเป็นมิลลิวินาที สำหรับใช้ซิงค์ระบบพนักงาน
+  pickupSignature?: string;    // ภาพลายเซ็นลูกค้ารับมอบชุด (Base64 PNG string)
+  pickupSigneeName?: string;   // ชื่อลูกค้า/ผู้รับมอบชุด
+  pickupSignedAt?: string;     // วันเวลาที่เซ็นรับมอบชุด
+  isLocked?: boolean;          // ล็อกออเดอร์ถาวร ห้ามแก้ไขหรือลบข้อมูล
 }
 
 export interface FeedbackMessage {

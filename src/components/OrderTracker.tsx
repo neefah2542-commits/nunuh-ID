@@ -31,11 +31,15 @@ import {
   Send,
   ExternalLink,
   Link as LinkIcon,
-  Image as ImageIcon
+  Image as ImageIcon,
+  PenTool,
+  ShieldCheck,
+  Lock
 } from 'lucide-react';
 import PrintOrderModal from './PrintOrderModal';
 import EditOrderModal from './EditOrderModal';
 import FeedbackSection from './FeedbackSection';
+import SignatureModal from './SignatureModal';
 
 interface OrderTrackerProps {
   orders: Order[];
@@ -43,9 +47,10 @@ interface OrderTrackerProps {
   onUpdateOrderStatus: (orderId: string, nextStatus: OrderStatus) => void;
   onDeleteOrder: (orderId: string) => void;
   onEditOrder?: (updatedOrder: Order) => void;
+  onConfirmPickupSignature?: (orderId: string, signatureDataUrl: string, signeeName: string, signedAt: string) => void;
 }
 
-export default function OrderTracker({ orders, catalogue = [], onUpdateOrderStatus, onDeleteOrder, onEditOrder }: OrderTrackerProps) {
+export default function OrderTracker({ orders, catalogue = [], onUpdateOrderStatus, onDeleteOrder, onEditOrder, onConfirmPickupSignature }: OrderTrackerProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('ALL_ACTIVE'); // ALL, ALL_ACTIVE, or specific status
   const [branchFilter, setBranchFilter] = useState<string>('ALL');
@@ -53,6 +58,7 @@ export default function OrderTracker({ orders, catalogue = [], onUpdateOrderStat
   const [printingOrder, setPrintingOrder] = useState<Order | null>(null);
   const [showExportModal, setShowExportModal] = useState(false);
   const [editingOrder, setEditingOrder] = useState<Order | null>(null);
+  const [signatureModalOrder, setSignatureModalOrder] = useState<Order | null>(null);
 
   const [publicUrl, setPublicUrl] = useState(() => {
     return localStorage.getItem('nunuh_public_url') || window.location.origin;
@@ -1057,6 +1063,12 @@ export default function OrderTracker({ orders, catalogue = [], onUpdateOrderStat
                         <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full border ${currentStatusCfg.colorClass}`}>
                           {currentStatusCfg.label}
                         </span>
+                        {(order.isLocked || order.pickupSignature) && (
+                          <span className="bg-amber-100 text-amber-950 text-[10px] font-extrabold px-2.5 py-0.5 rounded-full border border-amber-300 flex items-center gap-1 shadow-3xs">
+                            <Lock className="h-3 w-3 text-amber-700" />
+                            <span>ลูกค้าเซ็นรับมอบแล้ว (ล็อกออเดอร์)</span>
+                          </span>
+                        )}
                         {order.customerCategory && (
                           <span className="bg-amber-50 text-amber-800 text-[10px] font-extrabold px-2 py-0.5 rounded border border-amber-200">
                             ประเภทงาน: {order.customerCategory}
@@ -1182,6 +1194,10 @@ export default function OrderTracker({ orders, catalogue = [], onUpdateOrderStat
                               type="button"
                               onClick={(e) => {
                                 e.stopPropagation();
+                                if (order.isLocked || order.pickupSignature) {
+                                  alert("🔒 ไม่สามารถเปลี่ยนสถานะได้ เนื่องจากออเดอร์นี้ถูกล็อกถาวรหลังจากลูกค้าเซ็นรับมอบชุดเรียบร้อยแล้ว");
+                                  return;
+                                }
                                 onUpdateOrderStatus(order.id, status);
                               }}
                               className={`p-2.5 rounded-xl text-center border text-xs transition-all relative flex flex-col justify-between h-20 group cursor-pointer ${
@@ -1201,13 +1217,66 @@ export default function OrderTracker({ orders, catalogue = [], onUpdateOrderStat
                               
                               {/* Hover tooltip hint */}
                               <div className="absolute bottom-1 right-2 opacity-0 group-hover:opacity-100 transition-all text-[8px] font-bold text-natural-clay">
-                                คลิกเพื่อปรับ &rarr;
+                                {(order.isLocked || order.pickupSignature) ? '🔒 ล็อกแล้ว' : 'คลิกเพื่อปรับ \u2192'}
                               </div>
                             </button>
                           );
                         })}
                       </div>
                     </div>
+
+                    {/* Customer Pickup Signature Block / Trigger Button */}
+                    {order.pickupSignature ? (
+                      <div className="bg-emerald-50/90 border border-emerald-300 rounded-2xl p-4 space-y-3 shadow-2xs">
+                        <div className="flex items-center justify-between border-b border-emerald-200/80 pb-2">
+                          <div className="flex items-center space-x-2 text-emerald-950 font-bold text-xs">
+                            <ShieldCheck className="h-4 w-4 text-emerald-600" />
+                            <span>🔒 หลักฐานการเซ็นรับมอบชุดสมบูรณ์ (Customer Pickup Verified)</span>
+                          </div>
+                          <span className="text-[10px] bg-emerald-700 text-white font-bold px-2.5 py-0.5 rounded-full shadow-3xs flex items-center gap-1">
+                            <Lock className="h-3 w-3" /> ล็อกออเดอร์ถาวร
+                          </span>
+                        </div>
+
+                        <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+                          <div className="space-y-1 text-xs text-emerald-950">
+                            <p><strong>ผู้เซ็นรับมอบ:</strong> {order.pickupSigneeName || order.customerName}</p>
+                            <p><strong>วันเวลาที่รับมอบ:</strong> {order.pickupSignedAt}</p>
+                            <p className="text-[10px] text-emerald-800/90 italic">"ข้าพเจ้าได้ตรวจสอบความสมบูรณ์เรียบร้อยของชุดสั่งตัดและได้รับมอบชุดแล้ว"</p>
+                          </div>
+                          <div className="bg-white p-2.5 rounded-xl border border-emerald-200 shadow-xs flex flex-col items-center shrink-0">
+                            <img
+                              src={order.pickupSignature}
+                              alt="ลายเซ็นลูกค้ารับมอบชุด"
+                              className="h-16 max-w-[180px] object-contain"
+                            />
+                            <span className="text-[8px] text-emerald-800/60 font-mono mt-1">ลายเซ็นดิจิทัลรับมอบชุด</span>
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="bg-gradient-to-r from-natural-espresso to-natural-clay/90 p-4 rounded-2xl text-natural-cream flex flex-col sm:flex-row items-center justify-between gap-3 shadow-md">
+                        <div className="space-y-0.5 text-center sm:text-left">
+                          <p className="font-serif font-bold text-sm text-natural-cream flex items-center justify-center sm:justify-start gap-1.5">
+                            <PenTool className="h-4 w-4 text-natural-ochre" />
+                            <span>เซ็นรับทราบ & รับมอบชุดสั่งตัด (Customer Signature Sign-off)</span>
+                          </p>
+                          <p className="text-[11px] text-natural-cream/80">
+                            เมื่อตัดเย็บเสร็จเรียบร้อย สามารถให้ลูกค้าเซ็นรับทราบผ่านหน้าจอเพื่อล็อกออเดอร์ถาวรและออกหลักฐานรับมอบ
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setSignatureModalOrder(order);
+                          }}
+                          className="px-5 py-2.5 rounded-xl bg-natural-ochre hover:bg-white text-natural-espresso font-extrabold text-xs shadow-md transition-all cursor-pointer whitespace-nowrap border border-natural-ochre/40"
+                        >
+                          ✍️ ให้ลูกค้าเซ็นรับมอบชุด
+                        </button>
+                      </div>
+                    )}
 
                     {/* Specifications Grid */}
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
@@ -1611,33 +1680,40 @@ export default function OrderTracker({ orders, catalogue = [], onUpdateOrderStat
 
                         {/* Action buttons (Delete & Edit) */}
                         <div className="pt-3 border-t border-natural-sand flex items-center justify-between">
-                          <div className="flex items-center space-x-3">
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setEditingOrder(order);
-                              }}
-                              className="text-[11px] text-emerald-700 hover:text-emerald-800 font-bold flex items-center space-x-1 p-1 hover:bg-emerald-50 rounded-lg transition-all cursor-pointer"
-                            >
-                              <Pencil className="h-3.5 w-3.5" />
-                              <span>แก้ไขออเดอร์นี้</span>
-                            </button>
+                          {(order.isLocked || order.pickupSignature) ? (
+                            <div className="flex items-center space-x-2 bg-amber-50 text-amber-950 border border-amber-300 px-3 py-1.5 rounded-xl text-xs font-bold shadow-2xs">
+                              <Lock className="h-4 w-4 text-amber-700 shrink-0" />
+                              <span>🔒 ห้ามแก้ไขหรือลบ! (ลูกค้าเซ็นรับมอบชุดแล้ว ระบบล็อกข้อมูลถาวร)</span>
+                            </div>
+                          ) : (
+                            <div className="flex items-center space-x-3">
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setEditingOrder(order);
+                                }}
+                                className="text-[11px] text-emerald-700 hover:text-emerald-800 font-bold flex items-center space-x-1 p-1 hover:bg-emerald-50 rounded-lg transition-all cursor-pointer"
+                              >
+                                <Pencil className="h-3.5 w-3.5" />
+                                <span>แก้ไขออเดอร์นี้</span>
+                              </button>
 
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                if (confirm(`คุณต้องการยกเลิกและลบออเดอร์ของ ${order.customerName} ใช่หรือไม่?`)) {
-                                  onDeleteOrder(order.id);
-                                }
-                              }}
-                              className="text-[11px] text-natural-clay hover:text-natural-clay-dark font-semibold flex items-center space-x-1 p-1 hover:bg-natural-sand/40 rounded-lg transition-all cursor-pointer"
-                            >
-                              <Trash2 className="h-3.5 w-3.5" />
-                              <span>ลบออเดอร์นี้</span>
-                            </button>
-                          </div>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  if (confirm(`คุณต้องการยกเลิกและลบออเดอร์ของ ${order.customerName} ใช่หรือไม่?`)) {
+                                    onDeleteOrder(order.id);
+                                  }
+                                }}
+                                className="text-[11px] text-natural-clay hover:text-natural-clay-dark font-semibold flex items-center space-x-1 p-1 hover:bg-natural-sand/40 rounded-lg transition-all cursor-pointer"
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                                <span>ลบออเดอร์นี้</span>
+                              </button>
+                            </div>
+                          )}
 
                           <button
                             type="button"
@@ -1864,6 +1940,20 @@ export default function OrderTracker({ orders, catalogue = [], onUpdateOrderStat
               onEditOrder(updated);
             }
             setEditingOrder(null);
+          }}
+        />
+      )}
+
+      {signatureModalOrder && (
+        <SignatureModal
+          order={signatureModalOrder}
+          isOpen={!!signatureModalOrder}
+          onClose={() => setSignatureModalOrder(null)}
+          onConfirmSignature={(orderId, sigUrl, signeeName, signedAt) => {
+            if (onConfirmPickupSignature) {
+              onConfirmPickupSignature(orderId, sigUrl, signeeName, signedAt);
+            }
+            setSignatureModalOrder(null);
           }}
         />
       )}
