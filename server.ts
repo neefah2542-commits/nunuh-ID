@@ -441,7 +441,8 @@ app.post("/api/webhook/line", async (req: any, res) => {
           });
         } catch (e) {}
 
-        const portalUrl = `${baseAppUrl}?tab=customer&search=${order.customerPhone}&mode=customer`;
+        const lineUserIdParam = event.source?.userId ? `&lineUserId=${event.source.userId}` : '';
+        const portalUrl = `${baseAppUrl}?tab=customer&search=${order.customerPhone}&mode=customer${lineUserIdParam}`;
 
         replyMessage = `⚜️ อัปเดตสถานะชุดสั่งตัด NUNUH Boutique ⚜️\n\nเรียนคุณ: ${order.customerName}\nรหัสออเดอร์: ${order.orderNumber}\nประเภทชุด: ${order.dressType}\n\n📍 สถานะปัจจุบัน: [${statusLabel}]\n📅 กำหนดส่งมอบ: ${formattedDelivery}\n\nท่านสามารถเปิดดูข้อมูลใบรับออเดอร์ รายละเอียดสัดส่วน และประวัติการชำระเงินมัดจำแบบละเอียดด้วยตนเองได้ที่นี่ค่ะ:\n🔗 ${portalUrl}\n\nหากท่านต้องการติดต่อพนักงานเพิ่มเติม สามารถพิมพ์ข้อความทิ้งไว้ในแชทนี้ได้เลยนะคะ ✨`;
       } else {
@@ -451,7 +452,8 @@ app.post("/api/webhook/line", async (req: any, res) => {
           listText += `${idx + 1}. คุณ ${order.customerName} - ออเดอร์ ${order.orderNumber} (${order.dressType})\n`;
         });
         
-        const portalUrl = `${baseAppUrl}?tab=customer&search=${matchedOrders[0].customerPhone}&mode=customer`;
+        const lineUserIdParam = event.source?.userId ? `&lineUserId=${event.source.userId}` : '';
+        const portalUrl = `${baseAppUrl}?tab=customer&search=${matchedOrders[0].customerPhone}&mode=customer${lineUserIdParam}`;
 
         replyMessage = `⚜️ พบข้อมูลที่เกี่ยวข้องทั้งหมด ${matchedOrders.length} ออเดอร์ค่ะ:\n\n${listText}\nคุณสามารถเลือกเปิดดูรายละเอียด สัดส่วน และสถานะของทุกออเดอร์ได้ที่ลิงก์นี้เลยค่ะ:\n🔗 ${portalUrl}\n\nขอบพระคุณค่ะ 💖`;
       }
