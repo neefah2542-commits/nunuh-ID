@@ -42,6 +42,76 @@ export default function App() {
   const [activeTab, setActiveTab] = useState<string>('tracker'); // tracker, orderForm, calendar, catalogue, reviews
   const [isCustomerMode, setIsCustomerMode] = useState<boolean>(false);
   const [isStaffMode, setIsStaffMode] = useState<boolean>(false);
+  const [activeStaffList, setActiveStaffList] = useState<Array<{ id: string; name: string; branch: string; loginTime: number }>>(() => {
+    const saved = localStorage.getItem('nunuh_active_staff_list');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      } catch (e) {}
+    }
+    const singleSaved = localStorage.getItem('nunuh_logged_in_staff');
+    if (singleSaved) {
+      try {
+        const p = JSON.parse(singleSaved);
+        if (p && p.name) {
+          return [{ id: 'staff-' + Date.now(), name: p.name, branch: p.branch || 'สาขานราธิวาส', loginTime: Date.now() }];
+        }
+      } catch (e) {}
+    }
+    return [];
+  });
+
+  const [currentStaff, setCurrentStaff] = useState<{ name: string; branch: string } | null>(() => {
+    if (activeStaffList.length > 0) {
+      return { name: activeStaffList[0].name, branch: activeStaffList[0].branch };
+    }
+    const saved = localStorage.getItem('nunuh_logged_in_staff');
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch (e) {
+        return null;
+      }
+    }
+    return null;
+  });
+
+  const [showAddStaffModal, setShowAddStaffModal] = useState<boolean>(false);
+
+  const handleStaffLogin = (name: string, branch: string) => {
+    const newStaff = { id: 'staff-' + Date.now() + '-' + Math.random().toString(36).substring(2, 5), name: name.trim(), branch: branch.trim(), loginTime: Date.now() };
+    const updatedList = [newStaff, ...activeStaffList];
+    setActiveStaffList(updatedList);
+    localStorage.setItem('nunuh_active_staff_list', JSON.stringify(updatedList));
+    setCurrentStaff({ name: newStaff.name, branch: newStaff.branch });
+    localStorage.setItem('nunuh_logged_in_staff', JSON.stringify({ name: newStaff.name, branch: newStaff.branch }));
+    setShowAddStaffModal(false);
+  };
+
+  const handleRemoveStaffSession = (id: string) => {
+    const updatedList = activeStaffList.filter(s => s.id !== id);
+    setActiveStaffList(updatedList);
+    localStorage.setItem('nunuh_active_staff_list', JSON.stringify(updatedList));
+    if (updatedList.length > 0) {
+      setCurrentStaff({ name: updatedList[0].name, branch: updatedList[0].branch });
+      localStorage.setItem('nunuh_logged_in_staff', JSON.stringify({ name: updatedList[0].name, branch: updatedList[0].branch }));
+    } else {
+      setCurrentStaff(null);
+      localStorage.removeItem('nunuh_logged_in_staff');
+    }
+  };
+
+  const handleStaffLogout = () => {
+    setActiveStaffList([]);
+    setCurrentStaff(null);
+    localStorage.removeItem('nunuh_active_staff_list');
+    localStorage.removeItem('nunuh_logged_in_staff');
+  };
+
+  const filteredOrdersForStaff = isStaffMode && currentStaff?.branch
+    ? orders.filter(o => o.branch === currentStaff.branch || o.staffBranch === currentStaff.branch || !o.branch)
+    : orders;
   const [copiedStaffLink, setCopiedStaffLink] = useState<boolean>(false);
   const [theme, setTheme] = useState<string>(() => {
     return localStorage.getItem('nunuh_selected_theme') || 'pink';
@@ -505,7 +575,13 @@ export default function App() {
 
   // การเพิ่มออเดอร์ใหม่
   const handleAddOrder = (newOrder: Order) => {
-    const orderWithTime = { ...newOrder, updatedAt: Date.now() };
+    const orderWithTime = { 
+      ...newOrder, 
+      staffName: currentStaff?.name || newOrder.staffName,
+      branch: currentStaff?.branch || newOrder.branch,
+      staffBranch: currentStaff?.branch || newOrder.staffBranch,
+      updatedAt: Date.now() 
+    };
     const updated = [orderWithTime, ...orders];
     saveOrdersToStorage(updated);
     // หลังบันทึกย้ายแท็บไปหน้าติดตามงาน (หากเป็นพนักงานให้คงอยู่ที่เดิมเพื่อความปลอดภัย)
@@ -766,7 +842,6 @@ export default function App() {
             {/* Top Workspace Tab Navs */}
             {!isCustomerMode ? (
               <nav className="flex items-center space-x-1 bg-natural-sand/50 p-1.5 rounded-2xl border border-natural-wheat/40">
-                {!isStaffMode && (
                   <button
                     onClick={() => setActiveTab('tracker')}
                     className={`flex items-center space-x-2 px-4 py-2 rounded-xl text-xs font-bold tracking-wide transition-all cursor-pointer ${
@@ -778,7 +853,6 @@ export default function App() {
                     <ClipboardCheck className="h-4 w-4" />
                     <span className="hidden sm:inline">หน้าแรก (ติดตามงาน)</span>
                   </button>
-                )}
 
                 <button
                   onClick={() => setActiveTab('orderForm')}
@@ -946,8 +1020,151 @@ export default function App() {
       {/* 2. MAIN CORE CONTAINER */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8">
         
+        {/* Staff Login Modal / Screen */}
+        {isStaffMode && (!currentStaff || showAddStaffModal) && (
+          <div className="fixed inset-0 z-50 bg-natural-espresso/70 backdrop-blur-sm flex items-center justify-center p-4">
+            <div className="bg-white rounded-3xl max-w-md w-full p-8 shadow-2xl border border-natural-wheat space-y-6">
+              <div className="text-center space-y-2 relative">
+                {showAddStaffModal && (
+                  <button
+                    onClick={() => setShowAddStaffModal(false)}
+                    className="absolute -top-2 -right-2 p-1.5 rounded-full bg-natural-sand text-natural-espresso hover:bg-natural-wheat text-xs font-bold cursor-pointer"
+                  >
+                    ✕
+                  </button>
+                )}
+                <div className="h-16 w-16 bg-natural-clay/10 rounded-2xl mx-auto flex items-center justify-center text-natural-clay text-2xl font-serif font-black">
+                  🛡️
+                </div>
+                <h3 className="text-2xl font-serif font-bold text-natural-espresso">
+                  {showAddStaffModal ? 'เพิ่มพนักงานเข้าสู่ระบบร่วมกัน' : 'เข้าสู่ระบบพนักงาน (Staff Login)'}
+                </h3>
+                <p className="text-xs text-natural-espresso/70">
+                  กรุณากรอกชื่อพนักงานและเลือกสาขาประจำการ เพื่อเปิดใช้งานหลายคนพร้อมกันในระบบ
+                </p>
+              </div>
+
+              <form 
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  const formEl = e.currentTarget;
+                  const nameInput = (formEl.elements.namedItem('staffName') as HTMLInputElement)?.value.trim();
+                  const branchSelect = (formEl.elements.namedItem('staffBranch') as HTMLSelectElement)?.value;
+                  if (!nameInput) {
+                    alert('กรุณากรอกชื่อพนักงานหรือชื่อเล่น');
+                    return;
+                  }
+                  handleStaffLogin(nameInput, branchSelect);
+                }}
+                className="space-y-4"
+              >
+                <div>
+                  <label className="block text-xs font-bold text-natural-espresso mb-1.5">ชื่อพนักงาน / ผู้รับออเดอร์ (Staff Name)</label>
+                  <input 
+                    name="staffName"
+                    type="text"
+                    required
+                    placeholder="เช่น คุณฟิรด้า, คุณซูไฮลา, เอ"
+                    className="w-full px-4 py-3 rounded-xl border border-natural-wheat text-sm focus:outline-none focus:ring-2 focus:ring-natural-clay/20 focus:border-natural-clay bg-natural-cream/20 text-natural-espresso font-medium"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-natural-espresso mb-1.5">สาขาประจำการ (Branch)</label>
+                  <select 
+                    name="staffBranch"
+                    className="w-full px-4 py-3 rounded-xl border border-natural-wheat text-sm focus:outline-none focus:ring-2 focus:ring-natural-clay/20 focus:border-natural-clay bg-natural-cream/20 text-natural-espresso font-medium"
+                  >
+                    <option value="สาขานราธิวาส">สาขานราธิวาส</option>
+                    <option value="สาขายะลา">สาขายะลา</option>
+                    <option value="สาขาปัตตานี">สาขาปัตตานี</option>
+                    <option value="สาขาหาดใหญ่">สาขาหาดใหญ่</option>
+                    <option value="สาขาหลัก (HQ)">สาขาหลัก (HQ)</option>
+                  </select>
+                </div>
+
+                <button
+                  type="submit"
+                  className="w-full py-3.5 bg-natural-clay hover:bg-natural-clay-dark text-white font-bold text-sm rounded-xl shadow-md transition-all cursor-pointer"
+                >
+                  เข้าสู่ระบบพนักงาน ✓
+                </button>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* Staff Logged-in Info Banner & Active Multi-Staff Roster */}
+        {isStaffMode && currentStaff && (
+          <div className="mb-6 bg-amber-50/90 border border-amber-200/80 rounded-2xl p-4 flex flex-col gap-3 shadow-xs">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="flex items-center space-x-3.5">
+                <div className="h-10 w-10 rounded-xl bg-amber-500/10 flex items-center justify-center text-amber-700 font-serif font-black shrink-0 text-base">
+                  👥
+                </div>
+                <div>
+                  <h4 className="text-sm font-bold text-amber-950 font-serif">
+                    ทีมพนักงานที่กำลังออนไลน์อยู่พร้อมกัน ({activeStaffList.length} คน)
+                  </h4>
+                  <p className="text-xs text-amber-800/80 leading-relaxed">
+                    ระบบรองรับการเข้าสู่ระบบพร้อมกันหลายคน ทีมงานสามารถบันทึกและสลับผู้รับออเดอร์ได้อิสระ
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center space-x-2 shrink-0">
+                <button
+                  onClick={() => setShowAddStaffModal(true)}
+                  className="px-3.5 py-1.5 rounded-xl text-xs font-bold bg-amber-600 text-white hover:bg-amber-700 transition-all cursor-pointer shadow-3xs"
+                >
+                  + เพิ่มพนักงานเข้าสู่ระบบ
+                </button>
+                <button
+                  onClick={handleStaffLogout}
+                  className="px-3.5 py-1.5 rounded-xl text-xs font-bold bg-white text-amber-900 border border-amber-300 hover:bg-amber-100 transition-all cursor-pointer shadow-3xs"
+                >
+                  ออกจากระบบทั้งหมด 🔄
+                </button>
+              </div>
+            </div>
+
+            {/* Active Staff Badges */}
+            <div className="flex flex-wrap gap-2 pt-2 border-t border-amber-200/60">
+              {activeStaffList.map((st) => (
+                <div 
+                  key={st.id}
+                  onClick={() => {
+                    setCurrentStaff({ name: st.name, branch: st.branch });
+                    localStorage.setItem('nunuh_logged_in_staff', JSON.stringify({ name: st.name, branch: st.branch }));
+                  }}
+                  className={`flex items-center space-x-2 px-3 py-1.5 rounded-xl border text-xs font-medium cursor-pointer transition-all ${
+                    currentStaff?.name === st.name && currentStaff?.branch === st.branch
+                      ? 'bg-amber-200/80 border-amber-400 font-bold text-amber-950 shadow-3xs'
+                      : 'bg-white/80 border-amber-200 text-amber-900 hover:bg-amber-100/50'
+                  }`}
+                >
+                  <span>👤 <strong>{st.name}</strong> ({st.branch})</span>
+                  {currentStaff?.name === st.name && (
+                    <span className="text-[10px] bg-amber-600 text-white px-1.5 py-0.5 rounded-md">ใช้งานอยู่</span>
+                  )}
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleRemoveStaffSession(st.id);
+                    }}
+                    className="text-amber-700 hover:text-red-600 font-bold px-1"
+                    title="ออกจากระบบเฉพาะพนักงานท่านนี้"
+                  >
+                    ×
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Staff Mode Information Banner */}
-        {isStaffMode && (
+        {isStaffMode && !currentStaff && (
           <div className="mb-6 bg-amber-50/90 border border-amber-200/80 rounded-2xl p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
             <div className="flex items-start space-x-3.5">
               <div className="h-10 w-10 rounded-xl bg-amber-500/10 flex items-center justify-center text-amber-700 font-serif font-black shrink-0 text-lg">
@@ -1024,7 +1241,7 @@ export default function App() {
                     <p className="text-xs text-natural-espresso/60">คลิกการ์ดรายการเพื่อขยายข้อมูลความต้องการ สรุปยอดค้างชำระ และข้อมูลสัดส่วนการวัดตัวลูกค้า</p>
                   </div>
                   <OrderTracker 
-                    orders={orders} 
+                    orders={filteredOrdersForStaff} 
                     catalogue={catalogue}
                     onUpdateOrderStatus={handleUpdateOrderStatus}
                     onDeleteOrder={handleDeleteOrder}
@@ -1047,6 +1264,9 @@ export default function App() {
                     orders={orders}
                     preselectedDesignId={preselectedDesignId}
                     onClearPreselectedDesign={() => setPreselectedDesignId('custom')}
+                    staffName={currentStaff?.name}
+                    staffBranch={currentStaff?.branch}
+                    activeStaffList={activeStaffList}
                   />
                 </div>
               )}

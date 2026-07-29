@@ -67,6 +67,8 @@ export interface Order {
   customerPhotoSide?: string;  // ภาพถ่ายลูกค้า ด้านข้าง
   customerPhotoBack?: string;  // ภาพถ่ายลูกค้า ด้านหลัง
   branch?: string;           // สาขาที่รับออเดอร์ (สาขานราธิวาส, สาขายะลา, สาขาปัตตานี, สาขาหาดใหญ่)
+  staffName?: string;        // ชื่อพนักงานผู้รับออเดอร์
+  staffBranch?: string;      // สาขาของพนักงานผู้รับออเดอร์
   paymentMethod?: string;      // ช่องทางการชำระเงิน (เงินโอน, เงินสด, บัตรเครดิต)
   customerCategory?: string;   // ประเภทงาน เช่น IDD, IDH, ทั่วไป
   membershipTier?: 'PRIME' | 'PRIVILEGE' | 'TRADER' | 'MEMBER'; // ประเภทบัตรสมาชิก

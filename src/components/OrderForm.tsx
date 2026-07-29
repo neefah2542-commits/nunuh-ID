@@ -15,6 +15,9 @@ interface OrderFormProps {
   orders?: Order[];
   preselectedDesignId?: string;
   onClearPreselectedDesign?: () => void;
+  staffName?: string;
+  staffBranch?: string;
+  activeStaffList?: Array<{ id: string; name: string; branch: string }>;
 }
 
 export default function OrderForm({ 
@@ -23,9 +26,13 @@ export default function OrderForm({
   nextOrderNumber, 
   orders = [],
   preselectedDesignId,
-  onClearPreselectedDesign
+  onClearPreselectedDesign,
+  staffName,
+  staffBranch,
+  activeStaffList = []
 }: OrderFormProps) {
   // ฟอร์มแบ่งออกเป็น 4 ส่วนหลักเพื่อความเป็นระเบียบเรียบร้อย (Bento layout)
+  const [selectedStaffName, setSelectedStaffName] = useState(staffName || activeStaffList[0]?.name || '');
   const [customerName, setCustomerName] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
   const [customerSocial, setCustomerSocial] = useState('');
@@ -33,7 +40,7 @@ export default function OrderForm({
   const [customerCategory, setCustomerCategory] = useState('IDD'); // ค่าเริ่มต้นเช่น IDD, IDH
   const [membershipTier, setMembershipTier] = useState<'PRIME' | 'PRIVILEGE' | 'TRADER' | 'MEMBER'>('MEMBER');
   const [externalOrderId, setExternalOrderId] = useState('');
-  const [branch, setBranch] = useState('สาขานราธิวาส');
+  const [branch, setBranch] = useState(staffBranch || 'สาขานราธิวาส');
   
   const [dressType, setDressType] = useState('เดรสราตรี');
   const [customDressType, setCustomDressType] = useState('');
@@ -407,7 +414,9 @@ export default function OrderForm({
       customerCategory: customerCategory || undefined,
       membershipTier: membershipTier,
       externalOrderId: externalOrderId.trim() || undefined,
-      branch: branch || 'สาขานราธิวาส',
+      branch: branch || staffBranch || 'สาขานราธิวาส',
+      staffName: selectedStaffName || staffName || undefined,
+      staffBranch: staffBranch || branch || undefined,
       isMatchingSet: isMatchingSet || undefined,
       idhNumber: isMatchingSet ? (idhNumber.trim() || undefined) : undefined,
       pickupSignature: orderSignature || undefined,
@@ -589,6 +598,31 @@ export default function OrderForm({
               </div>
               
               <div className="space-y-3">
+                <div>
+                  <label className="block text-xs font-medium text-natural-espresso/70 mb-1">พนักงานผู้รับออเดอร์ (Staff Record)</label>
+                  {activeStaffList.length > 0 ? (
+                    <select
+                      value={selectedStaffName}
+                      onChange={(e) => setSelectedStaffName(e.target.value)}
+                      className="w-full px-3 py-2 rounded-xl border border-natural-wheat text-xs font-bold bg-natural-cream/20 text-natural-espresso focus:outline-none focus:ring-2 focus:ring-natural-clay/20"
+                    >
+                      {activeStaffList.map((st) => (
+                        <option key={st.id} value={st.name}>
+                          {st.name} ({st.branch})
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    <input
+                      type="text"
+                      value={selectedStaffName}
+                      onChange={(e) => setSelectedStaffName(e.target.value)}
+                      placeholder="ระบุชื่อพนักงานผู้รับออเดอร์"
+                      className="w-full px-3 py-2 rounded-xl border border-natural-wheat text-xs font-bold bg-natural-cream/20 text-natural-espresso focus:outline-none focus:ring-2 focus:ring-natural-clay/20"
+                    />
+                  )}
+                </div>
+
                 <div>
                   <label className="block text-xs font-medium text-natural-espresso/70 mb-1">สาขาที่รับออเดอร์ <span className="text-natural-clay">*</span></label>
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
