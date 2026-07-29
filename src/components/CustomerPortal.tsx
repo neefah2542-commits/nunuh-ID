@@ -669,16 +669,6 @@ export default function CustomerPortal({
                               )}
                             </div>
                             
-                            {/* Camera upload overlay */}
-                            <label className="absolute bottom-0 right-0 bg-natural-clay text-white hover:bg-natural-clay-dark p-1.5 rounded-full shadow-md cursor-pointer transition-transform hover:scale-105 border border-white">
-                              <input 
-                                type="file" 
-                                accept="image/*" 
-                                className="hidden" 
-                                onChange={handleAvatarUpload}
-                              />
-                              <Camera className="h-3.5 w-3.5" />
-                            </label>
                           </div>
                           
                           <div className="space-y-1 flex-1">
