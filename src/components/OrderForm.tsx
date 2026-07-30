@@ -1240,54 +1240,99 @@ export default function OrderForm({
                   </div>
 
                   {/* ปุ่มเลือกไซส์ */}
-                  <div className="flex flex-wrap gap-2">
-                    {(() => {
-                      const matchedItem = selectedDesignId !== 'custom' ? catalogue.find(item => item.id === selectedDesignId) : null;
-                      return Object.keys(STANDARD_SIZE_CHART).map((size) => {
-                        const isSelected = selectedSize === size;
-                        const isRecommended = matchedItem && matchedItem.sizes ? matchedItem.sizes.includes(size) : false;
-                        return (
-                          <button
-                            key={size}
-                            type="button"
-                            onClick={() => handleSizeChange(size)}
-                            className={`px-3 py-1.5 text-xs font-serif font-bold rounded-lg transition-all cursor-pointer flex flex-col items-center min-w-[55px] border relative ${
-                              isSelected
-                                ? 'bg-natural-clay text-white border-natural-clay shadow-xs'
-                                : isRecommended
-                                  ? 'bg-natural-ochre/5 hover:bg-natural-ochre/15 text-natural-espresso border-natural-ochre/40'
-                                  : 'bg-white hover:bg-natural-sand/40 text-natural-espresso border-natural-wheat hover:border-natural-clay/30'
-                            }`}
-                          >
-                            <span className="text-xs flex items-center gap-0.5">
-                              {size}
-                              {isRecommended && (
-                                <span className="text-[8px] bg-natural-ochre text-white px-0.5 py-px rounded-xs leading-none font-sans" title="ไซส์ตรงปกแบบชุดนี้">
-                                  ★
-                                </span>
-                              )}
-                            </span>
-                            <span className={`text-[9px] mt-0.5 font-sans font-medium ${isSelected ? 'text-white/80' : isRecommended ? 'text-natural-ochre' : 'text-natural-espresso/45'}`}>
-                              อก {STANDARD_SIZE_CHART[size].chest}"
-                            </span>
-                          </button>
-                        );
-                      });
-                    })()}
-                    <button
-                      type="button"
-                      onClick={() => handleSizeChange('')}
-                      className={`px-3 py-1 text-xs font-serif font-bold rounded-lg transition-all cursor-pointer flex flex-col items-center justify-center min-w-[55px] border ${
-                        !selectedSize
-                          ? 'bg-natural-clay text-white border-natural-clay shadow-xs'
-                          : 'bg-white hover:bg-natural-sand/40 text-natural-espresso border-natural-wheat hover:border-natural-clay/30'
-                      }`}
-                    >
-                      <span className="text-xs">CUSTOM</span>
-                      <span className={`text-[9px] mt-0.5 font-sans font-medium ${!selectedSize ? 'text-white/80' : 'text-natural-espresso/45'}`}>
-                        วัดตัวพิเศษ
-                      </span>
-                    </button>
+                  <div className="space-y-3">
+                    <div>
+                      <div className="flex items-center space-x-1.5 text-[11px] font-bold text-natural-espresso/80 mb-1.5">
+                        <span>👶 ไซส์เด็ก (Kids):</span>
+                        <span className="text-[10px] text-natural-clay font-medium">DDS, DDM, DDL (รอบอก 24"-32")</span>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        {['DDS', 'DDM', 'DDL'].map((size) => {
+                          const isSelected = selectedSize === size;
+                          const matchedItem = selectedDesignId !== 'custom' ? catalogue.find(item => item.id === selectedDesignId) : null;
+                          const isRecommended = matchedItem && matchedItem.sizes ? matchedItem.sizes.includes(size) : false;
+                          return (
+                            <button
+                              key={size}
+                              type="button"
+                              onClick={() => handleSizeChange(size)}
+                              className={`px-3 py-1.5 text-xs font-serif font-bold rounded-lg transition-all cursor-pointer flex flex-col items-center min-w-[55px] border relative ${
+                                isSelected
+                                  ? 'bg-natural-clay text-white border-natural-clay shadow-xs'
+                                  : isRecommended
+                                    ? 'bg-natural-ochre/5 hover:bg-natural-ochre/15 text-natural-espresso border-natural-ochre/40'
+                                    : 'bg-amber-50/50 hover:bg-amber-100/50 text-natural-espresso border-amber-200 hover:border-natural-clay/30'
+                              }`}
+                            >
+                              <span className="text-xs flex items-center gap-0.5">
+                                {size}
+                                {isRecommended && (
+                                  <span className="text-[8px] bg-natural-ochre text-white px-0.5 py-px rounded-xs leading-none font-sans" title="ไซส์ตรงปกแบบชุดนี้">
+                                    ★
+                                  </span>
+                                )}
+                              </span>
+                              <span className={`text-[9px] mt-0.5 font-sans font-medium ${isSelected ? 'text-white/80' : isRecommended ? 'text-natural-ochre' : 'text-amber-900/60'}`}>
+                                อก {STANDARD_SIZE_CHART[size].chest}"
+                              </span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    <div>
+                      <div className="flex items-center space-x-1.5 text-[11px] font-bold text-natural-espresso/80 mb-1.5">
+                        <span>👩 ไซส์ผู้ใหญ่ (Adults):</span>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        {['SS', 'S', 'M', 'L', 'XL', '2XL', '3XL'].map((size) => {
+                          const isSelected = selectedSize === size;
+                          const matchedItem = selectedDesignId !== 'custom' ? catalogue.find(item => item.id === selectedDesignId) : null;
+                          const isRecommended = matchedItem && matchedItem.sizes ? matchedItem.sizes.includes(size) : false;
+                          return (
+                            <button
+                              key={size}
+                              type="button"
+                              onClick={() => handleSizeChange(size)}
+                              className={`px-3 py-1.5 text-xs font-serif font-bold rounded-lg transition-all cursor-pointer flex flex-col items-center min-w-[55px] border relative ${
+                                isSelected
+                                  ? 'bg-natural-clay text-white border-natural-clay shadow-xs'
+                                  : isRecommended
+                                    ? 'bg-natural-ochre/5 hover:bg-natural-ochre/15 text-natural-espresso border-natural-ochre/40'
+                                    : 'bg-white hover:bg-natural-sand/40 text-natural-espresso border-natural-wheat hover:border-natural-clay/30'
+                              }`}
+                            >
+                              <span className="text-xs flex items-center gap-0.5">
+                                {size}
+                                {isRecommended && (
+                                  <span className="text-[8px] bg-natural-ochre text-white px-0.5 py-px rounded-xs leading-none font-sans" title="ไซส์ตรงปกแบบชุดนี้">
+                                    ★
+                                  </span>
+                                )}
+                              </span>
+                              <span className={`text-[9px] mt-0.5 font-sans font-medium ${isSelected ? 'text-white/80' : isRecommended ? 'text-natural-ochre' : 'text-natural-espresso/45'}`}>
+                                อก {STANDARD_SIZE_CHART[size].chest}"
+                              </span>
+                            </button>
+                          );
+                        })}
+                        <button
+                          type="button"
+                          onClick={() => handleSizeChange('')}
+                          className={`px-3 py-1 text-xs font-serif font-bold rounded-lg transition-all cursor-pointer flex flex-col items-center justify-center min-w-[55px] border ${
+                            !selectedSize
+                              ? 'bg-natural-clay text-white border-natural-clay shadow-xs'
+                              : 'bg-white hover:bg-natural-sand/40 text-natural-espresso border-natural-wheat hover:border-natural-clay/30'
+                          }`}
+                        >
+                          <span className="text-xs">CUSTOM</span>
+                          <span className={`text-[9px] mt-0.5 font-sans font-medium ${!selectedSize ? 'text-white/80' : 'text-natural-espresso/45'}`}>
+                            วัดตัวพิเศษ
+                          </span>
+                        </button>
+                      </div>
+                    </div>
                   </div>
 
                   {/* ตารางเปรียบเทียบด่วน */}

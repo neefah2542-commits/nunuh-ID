@@ -199,6 +199,9 @@ export const STANDARD_SIZE_CHART: Record<string, {
   sleeveLength: string;
   length: string;
 }> = {
+  DDS: { chest: "24", waist: "26", hips: "26", shoulder: "11", sleeveLength: "16", length: "35" },
+  DDM: { chest: "26", waist: "28", hips: "28", shoulder: "12", sleeveLength: "18", length: "42" },
+  DDL: { chest: "30-32", waist: "32", hips: "34", shoulder: "13", sleeveLength: "20", length: "45" },
   SS: { chest: "34", waist: "30", hips: "38", shoulder: "14", sleeveLength: "21", length: "53" },
   S: { chest: "38", waist: "34", hips: "42", shoulder: "14.5", sleeveLength: "21", length: "53" },
   M: { chest: "40", waist: "36", hips: "44", shoulder: "15", sleeveLength: "22", length: "54" },
