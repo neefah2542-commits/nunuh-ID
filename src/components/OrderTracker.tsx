@@ -925,80 +925,6 @@ export default function OrderTracker({ orders, catalogue = [], onUpdateOrderStat
         </div>
       )}
       
-      {/* Delivery Notification Alert Panel */}
-      {(() => {
-        const todayStart = new Date();
-        todayStart.setHours(0, 0, 0, 0);
-        const deliveryAlerts = orders.reduce((acc, order) => {
-          if (order.status === OrderStatus.COMPLETED) return acc;
-          const delDate = new Date(order.deliveryDate);
-          delDate.setHours(0, 0, 0, 0);
-          const diff = Math.round((delDate.getTime() - todayStart.getTime()) / (1000 * 3600 * 24));
-          if (diff < 0) acc.overdue.push(order);
-          else if (diff === 0) acc.today.push(order);
-          else if (diff >= 1 && diff <= 3) acc.upcoming.push(order);
-          return acc;
-        }, { overdue: [] as Order[], today: [] as Order[], upcoming: [] as Order[] });
-
-        const totalAlerts = deliveryAlerts.overdue.length + deliveryAlerts.today.length + deliveryAlerts.upcoming.length;
-        if (totalAlerts === 0) return null;
-
-        return (
-          <div className="bg-gradient-to-r from-amber-50 via-orange-50 to-rose-50 p-4 rounded-2xl border-2 border-orange-200 shadow-sm space-y-3">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
-              <div className="flex items-center space-x-2.5">
-                <div className="p-2 bg-orange-600 text-white rounded-xl shadow-xs animate-bounce shrink-0">
-                  <Bell className="h-5 w-5" />
-                </div>
-                <div>
-                  <h3 className="text-xs font-serif font-black text-natural-espresso uppercase tracking-wider">
-                    🚨 ระบบแจ้งเตือนออเดอร์ที่ต้องจัดส่ง (Delivery & Urgency Alerts)
-                  </h3>
-                  <p className="text-[11px] text-natural-espresso/70">
-                    มีออเดอร์ตัดเย็บที่ถึงกำหนดส่งวันนี้ เกินกำหนด หรือใกล้กำหนดส่งด่วน รวม {totalAlerts} รายการ
-                  </p>
-                </div>
-              </div>
-              <div className="flex flex-wrap items-center gap-2">
-                {deliveryAlerts.today.length > 0 && (
-                  <button
-                    onClick={() => {
-                      setSearchQuery('');
-                      setStatusFilter('ALL_ACTIVE');
-                    }}
-                    className="px-3.5 py-1.5 bg-red-600 hover:bg-red-700 text-white text-xs font-extrabold rounded-xl shadow-xs flex items-center gap-1.5 animate-pulse cursor-pointer"
-                  >
-                    <span>🚨 ส่งมอบวันนี้ ({deliveryAlerts.today.length})</span>
-                  </button>
-                )}
-                {deliveryAlerts.overdue.length > 0 && (
-                  <button
-                    onClick={() => {
-                      setSearchQuery('');
-                      setStatusFilter('ALL_ACTIVE');
-                    }}
-                    className="px-3.5 py-1.5 bg-rose-600 hover:bg-rose-700 text-white text-xs font-extrabold rounded-xl shadow-xs flex items-center gap-1.5 cursor-pointer"
-                  >
-                    <span>⚠️ เกินกำหนด ({deliveryAlerts.overdue.length})</span>
-                  </button>
-                )}
-                {deliveryAlerts.upcoming.length > 0 && (
-                  <button
-                    onClick={() => {
-                      setSearchQuery('');
-                      setStatusFilter('ALL_ACTIVE');
-                    }}
-                    className="px-3.5 py-1.5 bg-amber-600 hover:bg-amber-700 text-white text-xs font-extrabold rounded-xl shadow-xs flex items-center gap-1.5 cursor-pointer"
-                  >
-                    <span>⏳ ใกล้กำหนด 1-3 วัน ({deliveryAlerts.upcoming.length})</span>
-                  </button>
-                )}
-              </div>
-            </div>
-          </div>
-        );
-      })()}
-
       {/* Search and Filters Controls */}
       <div className="bg-white p-5 rounded-2xl border border-natural-wheat shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
         
@@ -1300,10 +1226,6 @@ export default function OrderTracker({ orders, catalogue = [], onUpdateOrderStat
                               type="button"
                               onClick={(e) => {
                                 e.stopPropagation();
-                                if (order.isLocked || order.pickupSignature) {
-                                  alert("🔒 ไม่สามารถเปลี่ยนสถานะได้ เนื่องจากออเดอร์นี้ถูกล็อกถาวรหลังจากลูกค้าเซ็นรับมอบชุดเรียบร้อยแล้ว");
-                                  return;
-                                }
                                 onUpdateOrderStatus(order.id, status);
                               }}
                               className={`p-2.5 rounded-xl text-center border text-xs transition-all relative flex flex-col justify-between h-20 group cursor-pointer ${
@@ -1323,7 +1245,7 @@ export default function OrderTracker({ orders, catalogue = [], onUpdateOrderStat
                               
                               {/* Hover tooltip hint */}
                               <div className="absolute bottom-1 right-2 opacity-0 group-hover:opacity-100 transition-all text-[8px] font-bold text-natural-clay">
-                                {(order.isLocked || order.pickupSignature) ? '🔒 ล็อกแล้ว' : 'คลิกเพื่อปรับ \u2192'}
+                                คลิกเพื่อปรับ &rarr;
                               </div>
                             </button>
                           );
@@ -1785,41 +1707,41 @@ export default function OrderTracker({ orders, catalogue = [], onUpdateOrderStat
                         </div>
 
                         {/* Action buttons (Delete & Edit) */}
-                        <div className="pt-3 border-t border-natural-sand flex items-center justify-between">
-                          {(order.isLocked || order.pickupSignature) ? (
-                            <div className="flex items-center space-x-2 bg-amber-50 text-amber-950 border border-amber-300 px-3 py-1.5 rounded-xl text-xs font-bold shadow-2xs">
-                              <Lock className="h-4 w-4 text-amber-700 shrink-0" />
-                              <span>🔒 ห้ามแก้ไขหรือลบ! (ลูกค้าเซ็นรับมอบชุดแล้ว ระบบล็อกข้อมูลถาวร)</span>
-                            </div>
-                          ) : (
-                            <div className="flex items-center space-x-3">
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setEditingOrder(order);
-                                }}
-                                className="text-[11px] text-emerald-700 hover:text-emerald-800 font-bold flex items-center space-x-1 p-1 hover:bg-emerald-50 rounded-lg transition-all cursor-pointer"
-                              >
-                                <Pencil className="h-3.5 w-3.5" />
-                                <span>แก้ไขออเดอร์นี้</span>
-                              </button>
+                        <div className="pt-3 border-t border-natural-sand flex flex-wrap items-center justify-between gap-3">
+                          <div className="flex flex-wrap items-center gap-3">
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setEditingOrder(order);
+                              }}
+                              className="text-xs bg-emerald-700 hover:bg-emerald-800 text-white font-bold flex items-center space-x-1.5 px-3.5 py-1.5 rounded-xl transition-all cursor-pointer shadow-xs"
+                            >
+                              <Pencil className="h-3.5 w-3.5" />
+                              <span>แก้ไขออเดอร์นี้</span>
+                            </button>
 
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  if (confirm(`คุณต้องการยกเลิกและลบออเดอร์ของ ${order.customerName} ใช่หรือไม่?`)) {
-                                    onDeleteOrder(order.id);
-                                  }
-                                }}
-                                className="text-[11px] text-natural-clay hover:text-natural-clay-dark font-semibold flex items-center space-x-1 p-1 hover:bg-natural-sand/40 rounded-lg transition-all cursor-pointer"
-                              >
-                                <Trash2 className="h-3.5 w-3.5" />
-                                <span>ลบออเดอร์นี้</span>
-                              </button>
-                            </div>
-                          )}
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (confirm(`คุณต้องการยกเลิกและลบออเดอร์ของ ${order.customerName} ใช่หรือไม่?`)) {
+                                  onDeleteOrder(order.id);
+                                }
+                              }}
+                              className="text-xs text-rose-700 hover:text-rose-800 font-semibold flex items-center space-x-1 px-2.5 py-1.5 hover:bg-rose-50 rounded-xl transition-all cursor-pointer border border-rose-200"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                              <span>ลบออเดอร์นี้</span>
+                            </button>
+
+                            {(order.isLocked || order.pickupSignature) && (
+                              <span className="text-[11px] font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-lg flex items-center gap-1">
+                                <ShieldCheck className="h-3.5 w-3.5 text-emerald-600" />
+                                <span>ลูกค้าเซ็นแล้ว (เจ้าของแก้ไขได้)</span>
+                              </span>
+                            )}
+                          </div>
 
                           <button
                             type="button"
