@@ -34,7 +34,8 @@ import {
   Image as ImageIcon,
   PenTool,
   ShieldCheck,
-  Lock
+  Lock,
+  Bell
 } from 'lucide-react';
 import PrintOrderModal from './PrintOrderModal';
 import EditOrderModal from './EditOrderModal';
@@ -924,6 +925,80 @@ export default function OrderTracker({ orders, catalogue = [], onUpdateOrderStat
         </div>
       )}
       
+      {/* Delivery Notification Alert Panel */}
+      {(() => {
+        const todayStart = new Date();
+        todayStart.setHours(0, 0, 0, 0);
+        const deliveryAlerts = orders.reduce((acc, order) => {
+          if (order.status === OrderStatus.COMPLETED) return acc;
+          const delDate = new Date(order.deliveryDate);
+          delDate.setHours(0, 0, 0, 0);
+          const diff = Math.round((delDate.getTime() - todayStart.getTime()) / (1000 * 3600 * 24));
+          if (diff < 0) acc.overdue.push(order);
+          else if (diff === 0) acc.today.push(order);
+          else if (diff >= 1 && diff <= 3) acc.upcoming.push(order);
+          return acc;
+        }, { overdue: [] as Order[], today: [] as Order[], upcoming: [] as Order[] });
+
+        const totalAlerts = deliveryAlerts.overdue.length + deliveryAlerts.today.length + deliveryAlerts.upcoming.length;
+        if (totalAlerts === 0) return null;
+
+        return (
+          <div className="bg-gradient-to-r from-amber-50 via-orange-50 to-rose-50 p-4 rounded-2xl border-2 border-orange-200 shadow-sm space-y-3">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+              <div className="flex items-center space-x-2.5">
+                <div className="p-2 bg-orange-600 text-white rounded-xl shadow-xs animate-bounce shrink-0">
+                  <Bell className="h-5 w-5" />
+                </div>
+                <div>
+                  <h3 className="text-xs font-serif font-black text-natural-espresso uppercase tracking-wider">
+                    🚨 ระบบแจ้งเตือนออเดอร์ที่ต้องจัดส่ง (Delivery & Urgency Alerts)
+                  </h3>
+                  <p className="text-[11px] text-natural-espresso/70">
+                    มีออเดอร์ตัดเย็บที่ถึงกำหนดส่งวันนี้ เกินกำหนด หรือใกล้กำหนดส่งด่วน รวม {totalAlerts} รายการ
+                  </p>
+                </div>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                {deliveryAlerts.today.length > 0 && (
+                  <button
+                    onClick={() => {
+                      setSearchQuery('');
+                      setStatusFilter('ALL_ACTIVE');
+                    }}
+                    className="px-3.5 py-1.5 bg-red-600 hover:bg-red-700 text-white text-xs font-extrabold rounded-xl shadow-xs flex items-center gap-1.5 animate-pulse cursor-pointer"
+                  >
+                    <span>🚨 ส่งมอบวันนี้ ({deliveryAlerts.today.length})</span>
+                  </button>
+                )}
+                {deliveryAlerts.overdue.length > 0 && (
+                  <button
+                    onClick={() => {
+                      setSearchQuery('');
+                      setStatusFilter('ALL_ACTIVE');
+                    }}
+                    className="px-3.5 py-1.5 bg-rose-600 hover:bg-rose-700 text-white text-xs font-extrabold rounded-xl shadow-xs flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <span>⚠️ เกินกำหนด ({deliveryAlerts.overdue.length})</span>
+                  </button>
+                )}
+                {deliveryAlerts.upcoming.length > 0 && (
+                  <button
+                    onClick={() => {
+                      setSearchQuery('');
+                      setStatusFilter('ALL_ACTIVE');
+                    }}
+                    className="px-3.5 py-1.5 bg-amber-600 hover:bg-amber-700 text-white text-xs font-extrabold rounded-xl shadow-xs flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <span>⏳ ใกล้กำหนด 1-3 วัน ({deliveryAlerts.upcoming.length})</span>
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
       {/* Search and Filters Controls */}
       <div className="bg-white p-5 rounded-2xl border border-natural-wheat shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
         
