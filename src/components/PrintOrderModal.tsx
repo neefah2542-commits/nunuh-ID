@@ -206,8 +206,8 @@ export default function PrintOrderModal({ order, isOpen, onClose }: PrintOrderMo
                       <span className="text-xs bg-natural-clay/10 text-natural-clay px-2 py-0.5 rounded font-bold uppercase tracking-wider font-serif">Couture</span>
                     </div>
                     <p className="text-[10px] text-natural-espresso/60 leading-relaxed font-sans max-w-sm">
-                      129/3 ซอยรามคำแหง 24 แขวงหัวหมาก เขตบางกะปิ กรุงเทพฯ 10240 <br />
-                      โทร: {boutiquePhone} | LINE/IG: @nunuh.couture
+                      NUNUN INTERNATIONAL <br />
+                      โทร: {boutiquePhone} | LINE: @237aynfq
                     </p>
                   </div>
                   <div className="text-left sm:text-right space-y-1">
@@ -423,8 +423,8 @@ export default function PrintOrderModal({ order, isOpen, onClose }: PrintOrderMo
                       <span className="text-xs bg-natural-clay/10 text-natural-clay px-2 py-0.5 rounded font-bold uppercase tracking-wider font-serif">Couture</span>
                     </div>
                     <p className="text-[10px] text-natural-espresso/60 leading-relaxed font-sans max-w-sm">
-                      129/3 ซอยรามคำแหง 24 แขวงหัวหมาก เขตบางกะปิ กรุงเทพฯ 10240 <br />
-                      โทร: {boutiquePhone} | LINE/IG: @nunuh.couture
+                      NUNUN INTERNATIONAL <br />
+                      โทร: {boutiquePhone} | LINE: @237aynfq
                     </p>
                   </div>
                   <div className="text-left sm:text-right space-y-1">
