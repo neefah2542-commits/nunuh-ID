@@ -91,6 +91,7 @@ export default function OrderForm({
   const [status, setStatus] = useState<OrderStatus>(OrderStatus.RECEIVED);
   const [finalPaymentAmount, setFinalPaymentAmount] = useState('');
   const [finalPaymentDate, setFinalPaymentDate] = useState('');
+  const [finalPaymentMethod, setFinalPaymentMethod] = useState('เงินโอน');
   const [slipImage, setSlipImage] = useState<string>('');
 
   const [isSuccess, setIsSuccess] = useState(false);
@@ -394,6 +395,7 @@ export default function OrderForm({
       discount: discount ? parseInt(discount) : 0,
       finalPaymentAmount: finalPaymentAmount.trim() !== '' ? (parseInt(finalPaymentAmount) || 0) : undefined,
       finalPaymentDate: finalPaymentDate.trim() || undefined,
+      finalPaymentMethod: finalPaymentAmount.trim() !== '' && (parseInt(finalPaymentAmount) || 0) > 0 ? finalPaymentMethod : undefined,
       measurements: measurementsData,
       status: status || OrderStatus.RECEIVED,
       notes: notes || undefined,
@@ -1931,12 +1933,12 @@ export default function OrderForm({
               )}
             </div>
 
-            {/* ชำระส่วนต่างคงเหลือ (ถ้ามี - เฉพาะเมื่อถึงขั้นตอนที่ 7 ส่งมอบสำเร็จ) */}
+            {/* ชำระส่วนต่างคงเหลือ (ถ้ามี - เฉพาะเมื่อถึงขั้นตอนที่ 7 ส่งมอบสำเร็จ หรือมีการป้อนยอดชำระ) */}
             {(status === OrderStatus.COMPLETED || !!finalPaymentAmount) && (
-              <div className="pt-4 border-t border-natural-sand/40 grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="pt-4 border-t border-natural-sand/40 grid grid-cols-1 sm:grid-cols-3 gap-4 bg-emerald-50/50 p-4 rounded-2xl border border-emerald-200 shadow-2xs">
                 <div>
                   <div className="flex items-center justify-between mb-1">
-                    <label className="block text-xs font-bold text-emerald-800">ยอดเงินชำระส่วนต่างคงเหลือ (บาท)</label>
+                    <label className="block text-xs font-bold text-emerald-900">ยอดชำระส่วนต่างคงเหลือ (บาท)</label>
                     {((parseFloat(price) || 0) - (parseFloat(deposit) || 0) - (parseFloat(discount) || 0)) > 0 && (
                       <button
                         type="button"
@@ -1947,7 +1949,7 @@ export default function OrderForm({
                             setFinalPaymentDate(new Date().toISOString().split('T')[0]);
                           }
                         }}
-                        className="text-[10px] text-emerald-600 hover:text-emerald-800 underline font-medium cursor-pointer"
+                        className="text-[10px] text-emerald-700 hover:text-emerald-900 underline font-extrabold cursor-pointer"
                       >
                         ชำระส่วนต่างครบ
                       </button>
@@ -1957,18 +1959,31 @@ export default function OrderForm({
                     type="number"
                     value={finalPaymentAmount}
                     onChange={(e) => setFinalPaymentAmount(e.target.value)}
-                    placeholder="เช่น 250 (เว้นว่างไว้ถ้ายังไม่จ่าย)"
-                    className="w-full text-sm px-3 py-2 rounded-xl border border-emerald-300 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 bg-emerald-50/40 text-emerald-950 font-bold"
+                    placeholder="เช่น 1400 (เว้นว่างถ้ายังไม่จ่าย)"
+                    className="w-full text-sm px-3 py-2 rounded-xl border border-emerald-300 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 bg-white text-emerald-950 font-bold"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-natural-espresso/80 mb-1">วันที่ชำระเงินส่วนต่าง</label>
+                  <label className="block text-xs font-bold text-emerald-900 mb-1">ช่องทางรับเงินส่วนต่าง</label>
+                  <select
+                    value={finalPaymentMethod}
+                    onChange={(e) => setFinalPaymentMethod(e.target.value)}
+                    className="w-full text-sm px-3 py-2 rounded-xl border border-emerald-300 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 bg-white text-emerald-950 font-bold cursor-pointer"
+                  >
+                    <option value="เงินโอน">💳 เงินโอนธนาคาร</option>
+                    <option value="เงินสด">💵 ชำระเงินสด</option>
+                    <option value="บัตรเครดิต">💳 บัตรเครดิต/เดบิต</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-emerald-900 mb-1">วันที่ชำระเงินส่วนต่าง</label>
                   <input
                     type="date"
                     value={finalPaymentDate}
                     onChange={(e) => setFinalPaymentDate(e.target.value)}
-                    className="w-full text-sm px-3 py-2 rounded-xl border border-natural-wheat focus:outline-none focus:ring-2 focus:ring-natural-clay/20 focus:border-natural-clay bg-natural-cream/20"
+                    className="w-full text-sm px-3 py-2 rounded-xl border border-emerald-300 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 bg-white text-emerald-950 font-medium"
                   />
                 </div>
               </div>

@@ -55,6 +55,7 @@ export interface Order {
   discount?: number;         // ส่วนลดเพิ่มเติม
   finalPaymentAmount?: number; // ยอดเงินที่ลูกค้าชำระส่วนต่างคงเหลือ (บาท)
   finalPaymentDate?: string;   // วันที่ชำระเงินส่วนต่าง (YYYY-MM-DD)
+  finalPaymentMethod?: string; // ช่องทางการชำระเงินส่วนต่างคงเหลือ (เงินโอน, เงินสด, บัตรเครดิต)
   measurements: Measurements;
   status: OrderStatus;
   notes?: string;

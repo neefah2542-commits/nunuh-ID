@@ -1491,7 +1491,11 @@ export default function OrderTracker({ orders, catalogue = [], onUpdateOrderStat
                             </p>
                             {order.finalPaymentAmount && order.finalPaymentAmount > 0 ? (
                               <p className="text-emerald-800 font-medium">
-                                💵 <span className="font-semibold text-emerald-900/70">จ่ายส่วนต่างเพิ่ม:</span> {order.finalPaymentAmount.toLocaleString()} บาท {order.finalPaymentDate ? `(${order.finalPaymentDate})` : ''}
+                                💵 <span className="font-semibold text-emerald-900/70">จ่ายส่วนต่างเพิ่ม:</span> {order.finalPaymentAmount.toLocaleString()} บาท
+                                <span className="ml-2 px-2 py-0.5 bg-emerald-100 text-emerald-900 border border-emerald-300 text-[10px] font-bold rounded-md inline-block">
+                                  ช่องทาง: {order.finalPaymentMethod || order.paymentMethod || 'เงินโอน'}
+                                </span>
+                                {order.finalPaymentDate ? ` (${order.finalPaymentDate})` : ''}
                               </p>
                             ) : null}
                             {(() => {

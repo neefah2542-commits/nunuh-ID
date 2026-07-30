@@ -61,6 +61,7 @@ export default function EditOrderModal({ order, onClose, onSave }: EditOrderModa
   const [deposit, setDeposit] = useState(order.deposit.toString());
   const [finalPaymentAmount, setFinalPaymentAmount] = useState(order.finalPaymentAmount !== undefined ? order.finalPaymentAmount.toString() : '');
   const [finalPaymentDate, setFinalPaymentDate] = useState(order.finalPaymentDate || '');
+  const [finalPaymentMethod, setFinalPaymentMethod] = useState(order.finalPaymentMethod || 'เงินโอน');
   const [paymentMethod, setPaymentMethod] = useState(order.paymentMethod || 'เงินโอน');
   const [deliveryDate, setDeliveryDate] = useState(order.deliveryDate || '');
   const [status, setStatus] = useState<OrderStatus>(order.status || OrderStatus.RECEIVED);
@@ -226,6 +227,7 @@ export default function EditOrderModal({ order, onClose, onSave }: EditOrderModa
       deposit: parseFloat(deposit) || 0,
       finalPaymentAmount: finalPaymentAmount.trim() !== '' ? (parseFloat(finalPaymentAmount) || 0) : undefined,
       finalPaymentDate: finalPaymentDate.trim() || undefined,
+      finalPaymentMethod: finalPaymentAmount.trim() !== '' && (parseFloat(finalPaymentAmount) || 0) > 0 ? finalPaymentMethod : undefined,
       paymentMethod,
       deliveryDate,
       status,
@@ -779,10 +781,10 @@ export default function EditOrderModal({ order, onClose, onSave }: EditOrderModa
                 </div>
 
                 {(status === OrderStatus.COMPLETED || !!finalPaymentAmount) && (
-                  <>
+                  <div className="col-span-1 md:col-span-2 grid grid-cols-1 sm:grid-cols-3 gap-3 bg-emerald-50/60 p-3.5 rounded-2xl border border-emerald-200 shadow-2xs">
                     <div>
                       <div className="flex items-center justify-between mb-1">
-                        <label className="block text-xs font-semibold text-emerald-800">ยอดเงินชำระส่วนต่างคงเหลือ (บาท)</label>
+                        <label className="block text-xs font-bold text-emerald-900">ยอดชำระส่วนต่างคงเหลือ (บาท)</label>
                         {((parseFloat(price) || 0) - (parseFloat(deposit) || 0) - (parseFloat(discount) || 0)) > 0 && (
                           <button
                             type="button"
@@ -793,7 +795,7 @@ export default function EditOrderModal({ order, onClose, onSave }: EditOrderModa
                                 setFinalPaymentDate(new Date().toISOString().split('T')[0]);
                               }
                             }}
-                            className="text-[10px] text-emerald-600 hover:text-emerald-800 underline font-medium cursor-pointer"
+                            className="text-[10px] text-emerald-700 hover:text-emerald-900 underline font-extrabold cursor-pointer"
                           >
                             ชำระส่วนต่างครบ
                           </button>
@@ -803,24 +805,37 @@ export default function EditOrderModal({ order, onClose, onSave }: EditOrderModa
                         type="number"
                         value={finalPaymentAmount}
                         onChange={(e) => setFinalPaymentAmount(e.target.value)}
-                        placeholder="เช่น 250"
-                        className="w-full text-sm px-3 py-2 rounded-xl border border-emerald-300 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 bg-emerald-50/40 text-emerald-950 font-bold"
+                        placeholder="เช่น 1400"
+                        className="w-full text-sm px-3 py-2 rounded-xl border border-emerald-300 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 bg-white text-emerald-950 font-bold"
                       />
                     </div>
 
                     <div>
-                      <label className="block text-xs font-semibold text-natural-espresso/70 mb-1">วันที่ชำระเงินส่วนต่าง</label>
+                      <label className="block text-xs font-bold text-emerald-900 mb-1">ช่องทางรับเงินส่วนต่าง</label>
+                      <select
+                        value={finalPaymentMethod}
+                        onChange={(e) => setFinalPaymentMethod(e.target.value)}
+                        className="w-full text-sm px-3 py-2 rounded-xl border border-emerald-300 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 bg-white text-emerald-950 font-bold cursor-pointer"
+                      >
+                        <option value="เงินโอน">💳 เงินโอนธนาคาร</option>
+                        <option value="เงินสด">💵 ชำระเงินสด</option>
+                        <option value="บัตรเครดิต">💳 บัตรเครดิต/เดบิต</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-emerald-900 mb-1">วันที่ชำระเงินส่วนต่าง</label>
                       <input
                         type="date"
                         value={finalPaymentDate}
                         onChange={(e) => setFinalPaymentDate(e.target.value)}
-                        className="w-full text-sm px-3 py-2 rounded-xl border border-natural-wheat focus:outline-none focus:ring-2 focus:ring-natural-clay/20 focus:border-natural-clay bg-natural-cream/10"
+                        className="w-full text-sm px-3 py-2 rounded-xl border border-emerald-300 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 bg-white text-emerald-950 font-medium"
                       />
                     </div>
-                  </>
+                  </div>
                 )}
 
-                <div className="col-span-2 pt-1">
+                <div className="col-span-1 md:col-span-2 pt-1">
                   {(() => {
                     const p = parseFloat(price) || 0;
                     const d = parseFloat(deposit) || 0;
@@ -840,7 +855,7 @@ export default function EditOrderModal({ order, onClose, onSave }: EditOrderModa
                           <span>มัดจำ: <strong className="text-natural-clay">-{d.toLocaleString()} ฿</strong></span>
                           {fp > 0 && (
                             <span className="text-emerald-700 font-medium">
-                              ชำระส่วนต่าง: <strong>-{fp.toLocaleString()} ฿</strong> {finalPaymentDate ? `(${finalPaymentDate})` : ''}
+                              ชำระส่วนต่าง: <strong>-{fp.toLocaleString()} ฿</strong> ({finalPaymentMethod || 'เงินโอน'}) {finalPaymentDate ? `(${finalPaymentDate})` : ''}
                             </span>
                           )}
                         </div>

@@ -625,7 +625,9 @@ export default function PrintOrderModal({ order, isOpen, onClose }: PrintOrderMo
                     </div>
                     {!!order.finalPaymentAmount && (
                       <div className="bg-emerald-50 border border-emerald-200 p-2 rounded-xl min-w-[80px]">
-                        <span className="block text-[9px] text-emerald-800 font-bold uppercase">ชำระส่วนต่าง</span>
+                        <span className="block text-[9px] text-emerald-800 font-bold uppercase">
+                          ชำระส่วนต่าง ({order.finalPaymentMethod || order.paymentMethod || 'เงินโอน'})
+                        </span>
                         <strong className="text-sm font-mono font-bold text-emerald-800">-{order.finalPaymentAmount.toLocaleString()} ฿</strong>
                       </div>
                     )}

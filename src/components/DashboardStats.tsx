@@ -115,7 +115,14 @@ export default function DashboardStats({ orders, onSelectTab }: DashboardStatsPr
     });
     
     const priceSum = matchingOrders.reduce((sum, o) => sum + (o.price || 0), 0);
-    const depositSum = matchingOrders.reduce((sum, o) => sum + (o.deposit || 0) + (o.finalPaymentAmount || 0), 0);
+    const depositSum = matchingOrders.reduce((sum, o) => {
+      let collected = 0;
+      const oMethod = (o.paymentMethod || "").trim();
+      if (oMethod === method) collected += (o.deposit || 0);
+      const fMethod = (o.finalPaymentMethod || o.paymentMethod || "").trim();
+      if (fMethod === method) collected += (o.finalPaymentAmount || 0);
+      return sum + collected;
+    }, 0);
     const discountSum = matchingOrders.reduce((sum, o) => sum + (o.discount || 0), 0);
     const unpaidSum = Math.max(0, priceSum - discountSum - depositSum);
     const count = matchingOrders.length;

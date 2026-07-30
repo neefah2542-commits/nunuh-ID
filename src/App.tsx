@@ -389,14 +389,19 @@ export default function App() {
     const modeParam = params.get('mode');
     const roleParam = params.get('role');
     const tabParam = params.get('tab');
+    const savedMode = localStorage.getItem('nunuh_user_mode');
     
-    // ตรวจสอบพารามิเตอร์ URL เพื่อกำหนดโหมดการใช้งาน
-    if (modeParam === 'staff' || roleParam === 'staff') {
+    // ตรวจสอบพารามิเตอร์ URL และ LocalStorage เพื่อกำหนดโหมดการใช้งาน
+    if (modeParam === 'staff' || roleParam === 'staff' || savedMode === 'staff') {
       localStorage.setItem('nunuh_user_mode', 'staff');
       setIsStaffMode(true);
       setIsCustomerMode(false);
-      setActiveTab('orderForm');
-    } else if (modeParam === 'customer' || tabParam === 'customer') {
+      if (tabParam && ['tracker', 'orderForm', 'catalogue'].includes(tabParam)) {
+        setActiveTab(tabParam as any);
+      } else {
+        setActiveTab('orderForm');
+      }
+    } else if (modeParam === 'customer' || tabParam === 'customer' || savedMode === 'customer') {
       localStorage.setItem('nunuh_user_mode', 'customer');
       setIsCustomerMode(true);
       setIsStaffMode(false);
@@ -790,6 +795,11 @@ export default function App() {
 
   // ฟังก์ชันกลับสู่หน้าแรกระบบจัดการห้องเสื้อ (Home / Tracker Dashboard)
   const handleGoHome = () => {
+    if (isStaffMode) {
+      // สำหรับลิงก์พนักงาน: จำเพาะเจาะจงให้อยู่ในโหมดพนักงานเท่านั้น ไม่สามารถสลับไปหน้าหลังบ้านหลักได้
+      setActiveTab('orderForm');
+      return;
+    }
     setIsCustomerMode(false);
     setIsStaffMode(false);
     localStorage.removeItem('nunuh_user_mode');
@@ -807,11 +817,17 @@ export default function App() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-20">
             
-            {/* Elegant Logo Group (Click to Home) */}
+            {/* Elegant Logo Group */}
             <div 
-              onClick={handleGoHome}
-              className="flex items-center space-x-3.5 cursor-pointer group transition-all"
-              title="คลิกเพื่อกลับสู่หน้าแรกระบบห้องเสื้อ NUNUH"
+              onClick={() => {
+                if (isStaffMode) {
+                  setActiveTab('orderForm');
+                } else {
+                  handleGoHome();
+                }
+              }}
+              className={`flex items-center space-x-3.5 ${isStaffMode ? 'cursor-default' : 'cursor-pointer'} group transition-all`}
+              title={isStaffMode ? "NUNUH Staff Workspace (พนักงานรับออเดอร์)" : "คลิกเพื่อกลับสู่หน้าแรกระบบห้องเสื้อ NUNUH"}
             >
               <div className="h-11 w-11 rounded-2xl bg-natural-espresso group-hover:bg-natural-clay transition-colors flex items-center justify-center text-natural-cream shadow-sm">
                 <Store className="h-5 w-5 text-natural-ochre" />
