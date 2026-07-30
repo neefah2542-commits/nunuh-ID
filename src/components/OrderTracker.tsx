@@ -1028,12 +1028,26 @@ export default function OrderTracker({ orders, catalogue = [], onUpdateOrderStat
             const unpaid = getUnpaidBalance(order);
             const orderImage = order.customImage || (order.selectedDesignId ? catalogue.find(item => item.id === order.selectedDesignId)?.image : null);
 
+            const todayStart = new Date();
+            todayStart.setHours(0, 0, 0, 0);
+            const delDate = new Date(order.deliveryDate);
+            delDate.setHours(0, 0, 0, 0);
+            const diff = Math.round((delDate.getTime() - todayStart.getTime()) / (1000 * 3600 * 24));
+
+            let cardBg = "bg-white border-natural-wheat";
+            if (order.status !== OrderStatus.COMPLETED) {
+              if (diff < 0) cardBg = "bg-rose-50/70 border-rose-300 ring-1 ring-rose-200";
+              else if (diff === 0) cardBg = "bg-red-50/80 border-red-400 ring-2 ring-red-300 animate-pulse";
+              else if (diff === 1) cardBg = "bg-orange-50/70 border-orange-300 ring-1 ring-orange-200";
+              else if (diff <= 3) cardBg = "bg-amber-50/70 border-amber-300";
+            }
+
             return (
               <div 
                 key={order.id}
                 id={order.id}
-                className={`bg-white rounded-2xl border transition-all duration-300 shadow-sm ${
-                  isExpanded ? 'border-natural-clay/45 ring-2 ring-natural-clay/5' : 'border-natural-wheat hover:border-natural-ochre/40'
+                className={`rounded-2xl border transition-all duration-300 shadow-sm ${cardBg} ${
+                  isExpanded ? 'ring-2 ring-natural-clay/20' : 'hover:border-natural-ochre/40'
                 }`}
               >
                 
@@ -1094,6 +1108,11 @@ export default function OrderTracker({ orders, catalogue = [], onUpdateOrderStat
                             🏪 {order.branch}
                           </span>
                         )}
+                        {order.staffName && (
+                          <span className="bg-amber-50 text-amber-900 text-[10px] font-extrabold px-2 py-0.5 rounded border border-amber-200">
+                            👤 พนักงาน: {order.staffName}
+                          </span>
+                        )}
                         {order.isMatchingSet && (
                           <span className="bg-amber-100 text-amber-900 text-[10px] font-extrabold px-2 py-0.5 rounded border border-amber-300 flex items-center gap-1 animate-pulse">
                             ✨ งานเข้าชุด {order.idhNumber ? `(IDH: ${order.idhNumber})` : ''}
@@ -1133,7 +1152,7 @@ export default function OrderTracker({ orders, catalogue = [], onUpdateOrderStat
                           year: 'numeric' 
                         })}
                       </p>
-                      <p className="text-[10px] font-medium text-natural-espresso/60">
+                      <div className="text-[10px] font-medium pt-0.5">
                         {(() => {
                           const todayStart = new Date();
                           todayStart.setHours(0, 0, 0, 0);
@@ -1141,12 +1160,24 @@ export default function OrderTracker({ orders, catalogue = [], onUpdateOrderStat
                           delDate.setHours(0, 0, 0, 0);
                           const diff = Math.round((delDate.getTime() - todayStart.getTime()) / (1000 * 3600 * 24));
 
-                          if (order.status === OrderStatus.COMPLETED) return "✨ ส่งมอบสำเร็จแล้ว";
-                          if (diff === 0) return "🚨 ส่งมอบวันนี้!";
-                          if (diff < 0) return `⚠️ เกินกำหนดส่ง ${Math.abs(diff)} วัน`;
-                          return `⏳ อีก ${diff} วันส่งชุด`;
+                          if (order.status === OrderStatus.COMPLETED) {
+                            return <span className="inline-block px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-800 border border-emerald-300 font-bold">✨ ส่งมอบสำเร็จแล้ว</span>;
+                          }
+                          if (diff < 0) {
+                            return <span className="inline-block px-2 py-0.5 rounded-md bg-rose-100 text-rose-700 border border-rose-300 font-bold animate-pulse">⚠️ เกินกำหนด ${Math.abs(diff)} วัน</span>;
+                          }
+                          if (diff === 0) {
+                            return <span className="inline-block px-2 py-0.5 rounded-md bg-red-600 text-white border border-red-700 font-bold animate-pulse">🚨 ส่งมอบวันนี้!</span>;
+                          }
+                          if (diff === 1) {
+                            return <span className="inline-block px-2 py-0.5 rounded-md bg-orange-100 text-orange-800 border border-orange-300 font-bold">⚠️ พรุ่งนี้ (อีก 1 วัน)</span>;
+                          }
+                          if (diff <= 3) {
+                            return <span className="inline-block px-2 py-0.5 rounded-md bg-amber-100 text-amber-800 border border-amber-300 font-semibold">⏳ อีก ${diff} วันส่งชุด</span>;
+                          }
+                          return <span className="inline-block px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-200">🟢 อีก ${diff} วันส่งชุด</span>;
                         })()}
-                      </p>
+                      </div>
                     </div>
 
                     <div className="text-right space-y-0.5 pl-4 border-l border-natural-sand">

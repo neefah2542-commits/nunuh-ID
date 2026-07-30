@@ -292,20 +292,24 @@ export default function DeliveryCalendar({ orders, onUpdateOrderStatus }: Delive
               delDate.setHours(0, 0, 0, 0);
 
               const diffDays = Math.round((delDate.getTime() - todayStart.getTime()) / (1000 * 3600 * 24));
-              let badgeColor = "bg-natural-sand text-natural-espresso/70 border-natural-wheat";
-              let timeText = `อีก ${diffDays} วัน`;
+              let badgeColor = "bg-emerald-50 text-emerald-700 border-emerald-200";
+              let timeText = `🟢 อีก ${diffDays} วัน`;
 
-              if (diffDays === 0) {
-                badgeColor = "bg-natural-clay text-white border-natural-clay animate-pulse";
+              if (order.status === OrderStatus.COMPLETED) {
+                badgeColor = "bg-emerald-100 text-emerald-800 border-emerald-300 font-bold";
+                timeText = "✨ ส่งมอบแล้ว";
+              } else if (diffDays === 0) {
+                badgeColor = "bg-red-600 text-white border-red-700 animate-pulse font-bold";
                 timeText = "🚨 ส่งวันนี้!";
               } else if (diffDays === 1) {
-                badgeColor = "bg-natural-sand text-natural-clay border-natural-clay/30";
+                badgeColor = "bg-orange-100 text-orange-800 border-orange-300 font-bold";
                 timeText = "⚠️ พรุ่งนี้!";
               } else if (diffDays < 0) {
-                badgeColor = "bg-rose-100 text-rose-700 border-rose-300 font-bold";
-                timeText = `⚠️ เกินกำหนด ${Math.abs(diffDays)} วัน`;
+                badgeColor = "bg-rose-100 text-rose-700 border-rose-300 font-bold animate-pulse";
+                timeText = `⚠️ เกิน ${Math.abs(diffDays)} วัน`;
               } else if (diffDays <= 3) {
-                badgeColor = "bg-natural-sand text-natural-ochre border-natural-ochre/30";
+                badgeColor = "bg-amber-100 text-amber-800 border-amber-300 font-semibold";
+                timeText = `⏳ อีก ${diffDays} วัน`;
               }
 
               const statusCfg = STATUS_MAP[order.status];
