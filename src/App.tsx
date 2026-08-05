@@ -466,8 +466,9 @@ export default function App() {
     const tabParam = params.get('tab');
     const savedMode = localStorage.getItem('nunuh_user_mode');
     
-    // ตรวจสอบพารามิเตอร์ URL และ LocalStorage เพื่อกำหนดโหมดการใช้งาน
-    if (modeParam === 'staff' || roleParam === 'staff' || savedMode === 'staff') {
+    // ตรวจสอบพารามิเตอร์ URL เพื่อกำหนดโหมดการใช้งาน
+    // สำหรับเจ้าของแอป (ลิงก์หลักแบบปกติ): จะเข้าสู่หน้าแรก "ติดตามงาน / Home" (tracker) เสมอทุกครั้งที่เปิดแอป
+    if (modeParam === 'staff' || roleParam === 'staff') {
       localStorage.setItem('nunuh_user_mode', 'staff');
       setIsStaffMode(true);
       setIsCustomerMode(false);
@@ -476,17 +477,13 @@ export default function App() {
       } else {
         setActiveTab('orderForm');
       }
-    } else if (modeParam === 'customer' || tabParam === 'customer' || savedMode === 'customer') {
+    } else if (modeParam === 'customer') {
       localStorage.setItem('nunuh_user_mode', 'customer');
       setIsCustomerMode(true);
       setIsStaffMode(false);
       setActiveTab('customer');
-    } else if (tabParam) {
-      setActiveTab(tabParam);
-      setIsStaffMode(false);
-      setIsCustomerMode(tabParam === 'customer');
     } else {
-      // หากเข้าลิงก์หลักแบบปกติ (ไม่มีพารามิเตอร์) ให้เข้าสู่หน้าแรก "ติดตามงาน" (Main Home Page) ทันที
+      // โหมดเจ้าของแอปหลัก: แสดงหน้าแรก "ติดตามงาน (Tracker Dashboard)" เสมอทุกครั้งเมื่อเข้าใช้
       localStorage.removeItem('nunuh_user_mode');
       setIsStaffMode(false);
       setIsCustomerMode(false);
