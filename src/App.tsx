@@ -486,7 +486,11 @@ export default function App() {
       localStorage.setItem('nunuh_user_mode', 'customer');
       setIsCustomerMode(true);
       setIsStaffMode(false);
-      setActiveTab('customer');
+      if (tabParam && ['customer', 'customerDashboard'].includes(tabParam)) {
+        setActiveTab(tabParam as any);
+      } else {
+        setActiveTab('customer');
+      }
     } else {
       // โหมดเจ้าของแอปหลัก: แสดงหน้าแรก "ติดตามงาน (Tracker Dashboard)" เสมอทุกครั้งเมื่อเข้าใช้
       localStorage.removeItem('nunuh_user_mode');
@@ -498,6 +502,13 @@ export default function App() {
     // เริ่มต้นซิงค์ข้อมูลกับ Backend ทันทีตอนหน้าเว็บโหลด
     syncAllDataWithServer();
   }, []);
+
+  // จำกัดสิทธิ์ในโหมดลูกค้า: ให้เข้าถึงได้เฉพาะ 2 แท็บ ("แดชบอร์ดลูกค้า & รีวิว (IDD IDH)" และ "สำหรับลูกค้า") เท่านั้น
+  useEffect(() => {
+    if (isCustomerMode && activeTab !== 'customer' && activeTab !== 'customerDashboard') {
+      setActiveTab('customer');
+    }
+  }, [isCustomerMode, activeTab]);
 
   // ซิงค์สตรีมข้อมูลเรียลไทม์ข้ามแท็บและหลายผู้ใช้งานที่ใช้ลิงก์เดียวกัน (BroadcastChannel + Storage Event + Polling)
   useEffect(() => {
@@ -1032,20 +1043,34 @@ export default function App() {
                 )}
               </nav>
             ) : (
-              !isReviewDirectLink ? (
+              <nav className="flex items-center space-x-1.5 bg-pink-50/80 p-1.5 rounded-2xl border border-pink-200/80 shadow-3xs">
                 <button
                   type="button"
-                  onClick={handleGoHome}
-                  className="flex items-center space-x-2 px-4 py-2.5 rounded-xl text-xs font-bold bg-natural-espresso text-natural-cream hover:bg-natural-clay transition-all shadow-xs cursor-pointer"
+                  onClick={() => setActiveTab('customerDashboard')}
+                  className={`flex items-center space-x-2 px-3.5 sm:px-4 py-2 rounded-xl text-xs font-bold tracking-wide transition-all cursor-pointer ${
+                    activeTab === 'customerDashboard'
+                      ? 'bg-pink-600 text-white shadow-xs font-extrabold'
+                      : 'text-pink-950/80 hover:bg-pink-100 hover:text-pink-950'
+                  }`}
                 >
-                  <span>🏠 กลับสู่หน้าแรกระบบห้องเสื้อ</span>
+                  <Users className="h-4 w-4" />
+                  <span className="hidden sm:inline">แดชบอร์ดลูกค้า & รีวิว (IDD IDH)</span>
+                  <span className="sm:hidden">แดชบอร์ดรีวิว</span>
                 </button>
-              ) : (
-                <div className="flex items-center space-x-1.5 px-3.5 py-2 rounded-xl text-xs font-extrabold bg-pink-100 text-pink-950 border border-pink-200/80 shadow-3xs">
-                  <Star className="h-4 w-4 fill-amber-400 text-amber-400" />
-                  <span>NUNUH Customer Review Portal</span>
-                </div>
-              )
+
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('customer')}
+                  className={`flex items-center space-x-2 px-3.5 sm:px-4.5 py-2 rounded-xl text-xs font-bold tracking-wide transition-all cursor-pointer ${
+                    activeTab === 'customer'
+                      ? 'bg-pink-600 text-white shadow-xs font-extrabold'
+                      : 'text-pink-950/80 hover:bg-pink-100 hover:text-pink-950'
+                  }`}
+                >
+                  <Sparkles className="h-4 w-4 text-amber-300 fill-amber-300" />
+                  <span>สำหรับลูกค้า</span>
+                </button>
+              </nav>
             )}
 
             {/* Elegant Theme Switcher */}
