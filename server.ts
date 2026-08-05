@@ -133,7 +133,25 @@ function writeReviewsOnServer(data: any[]) {
 // Server-Sent Events (SSE) for Real-Time Multi-User Sync
 const sseClients: { id: string; res: express.Response }[] = [];
 
-// Heartbeat interval every 15 seconds to keep SSE connections alive on Render / Cloudflare / Nginx proxies
+// Active Staff Sessions in Memory for Real-time Online Tracking
+interface ActiveStaffSession {
+  id: string;
+  name: string;
+  branch: string;
+  loginTime: number;
+  lastSeen: number;
+}
+let activeStaffSessions: ActiveStaffSession[] = [];
+
+function cleanStaleStaffSessions(): boolean {
+  const now = Date.now();
+  const initialCount = activeStaffSessions.length;
+  // Consider staff active if heartbeat received within last 45 seconds
+  activeStaffSessions = activeStaffSessions.filter(s => (now - s.lastSeen) < 45000);
+  return activeStaffSessions.length !== initialCount;
+}
+
+// Heartbeat interval every 10 seconds to clean stale staff and keep SSE connections alive
 setInterval(() => {
   for (let i = sseClients.length - 1; i >= 0; i--) {
     try {
@@ -142,7 +160,10 @@ setInterval(() => {
       sseClients.splice(i, 1);
     }
   }
-}, 15000);
+  if (cleanStaleStaffSessions()) {
+    broadcastSSEEvent("staff_updated", activeStaffSessions);
+  }
+}, 10000);
 
 function broadcastSSEEvent(type: string, data: any) {
   const payload = `data: ${JSON.stringify({ type, data })}\n\n`;
@@ -171,6 +192,49 @@ app.get("/api/events", (req, res) => {
     const idx = sseClients.findIndex(c => c.id === clientId);
     if (idx !== -1) sseClients.splice(idx, 1);
   });
+});
+
+// Real-Time Staff Session Endpoints
+app.get("/api/staff", (req, res) => {
+  cleanStaleStaffSessions();
+  res.json(activeStaffSessions);
+});
+
+app.post("/api/staff/heartbeat", (req, res) => {
+  const { id, name, branch, loginTime } = req.body || {};
+  if (!id || !name) {
+    return res.status(400).json({ error: "Missing staff id or name" });
+  }
+
+  const now = Date.now();
+  const existingIdx = activeStaffSessions.findIndex(s => s.id === id);
+  if (existingIdx !== -1) {
+    activeStaffSessions[existingIdx].lastSeen = now;
+    if (branch) activeStaffSessions[existingIdx].branch = branch;
+    if (name) activeStaffSessions[existingIdx].name = name;
+  } else {
+    activeStaffSessions.push({
+      id,
+      name,
+      branch: branch || 'สาขานราธิวาส',
+      loginTime: loginTime || now,
+      lastSeen: now,
+    });
+  }
+
+  broadcastSSEEvent("staff_updated", activeStaffSessions);
+  res.json({ success: true, activeStaff: activeStaffSessions });
+});
+
+app.post("/api/staff/logout", (req, res) => {
+  const { id } = req.body || {};
+  if (id) {
+    activeStaffSessions = activeStaffSessions.filter(s => s.id !== id);
+  } else {
+    activeStaffSessions = [];
+  }
+  broadcastSSEEvent("staff_updated", activeStaffSessions);
+  res.json({ success: true, activeStaff: activeStaffSessions });
 });
 
 // REST API Endpoints
@@ -379,6 +443,115 @@ app.post("/api/send-status", async (req: any, res) => {
     }
   } catch (err: any) {
     console.error("❌ Error sending push message:", err);
+    return res.status(500).json({ error: err.message || "Internal server error" });
+  }
+});
+
+// API Endpoint to send overdue orders notification directly to app owner via LINE
+app.post("/api/send-overdue-line-alert", async (req: any, res) => {
+  const { targetLineUserId } = req.body || {};
+  const settings = readSettingsOnServer();
+  const ownerId = (targetLineUserId || settings.ownerLineUserId || "").trim();
+
+  const orders = readOrdersOnServer();
+  const todayStart = new Date();
+  todayStart.setHours(0, 0, 0, 0);
+
+  const STATUS_LABELS: Record<string, string> = {
+    RECEIVED: "รับออเดอร์เรียบร้อย",
+    DESIGNING: "สรุปแบบ/ออกแบบ",
+    CUTTING: "กำลังตัดผ้า",
+    SEWING: "กำลังเย็บประกอบ",
+    FITTING: "ขั้นตอนฟิตติ้ง",
+    READY: "เสร็จสมบูรณ์พร้อมส่งมอบ",
+    COMPLETED: "ส่งมอบสำเร็จ"
+  };
+
+  const overdueOrders = orders.filter((o: any) => {
+    if (!o.deliveryDate || o.status === "COMPLETED") return false;
+    const delDate = new Date(o.deliveryDate);
+    delDate.setHours(0, 0, 0, 0);
+    return delDate.getTime() < todayStart.getTime();
+  });
+
+  if (overdueOrders.length === 0) {
+    return res.json({
+      success: true,
+      overdueCount: 0,
+      message: "ไม่พบออเดอร์ที่เกินกำหนดส่งมอบในขณะนี้ค่ะ ✨"
+    });
+  }
+
+  // Format notification text for LINE
+  let msgText = `🚨 [ห้องเสื้อ NUNUH - แจ้งเตือนออเดอร์เกินกำหนดส่ง!]\n`;
+  msgText += `พบออเดอร์ที่เกินกำหนดส่งมอบทั้งหมด ${overdueOrders.length} รายการ ดังนี้ค่ะ:\n\n`;
+
+  overdueOrders.forEach((o: any, idx: number) => {
+    const delDate = new Date(o.deliveryDate);
+    delDate.setHours(0, 0, 0, 0);
+    const diffDays = Math.round((todayStart.getTime() - delDate.getTime()) / (1000 * 3600 * 24));
+    const statusText = STATUS_LABELS[o.status] || o.status;
+    
+    msgText += `${idx + 1}. 📋 ออเดอร์ #: ${o.orderNumber || o.id}\n`;
+    msgText += `   👤 ลูกค้า: ${o.customerName} (${o.customerPhone || 'ไม่ระบุเบอร์'})\n`;
+    msgText += `   👗 ชุด: ${o.dressType || 'ชุดสั่งตัด'} ${o.branch ? `[${o.branch}]` : ''}\n`;
+    msgText += `   📅 กำหนดส่ง: ${o.deliveryDate} (⚠️ เกินกำหนด ${diffDays} วัน)\n`;
+    msgText += `   📌 สถานะ: ${statusText}\n\n`;
+  });
+
+  msgText += `โปรดตรวจสอบและเร่งรัดขั้นตอนตัดเย็บในระบบนะคะ 🙏`;
+
+  if (!ownerId) {
+    return res.status(400).json({
+      error: "กรุณาระบุรหัส LINE User ID ของเจ้าของร้านในระบบตั้งค่าก่อนนะคะ",
+      generatedMessage: msgText,
+      overdueCount: overdueOrders.length
+    });
+  }
+
+  const LINE_CHANNEL_ACCESS_TOKEN = process.env.LINE_CHANNEL_ACCESS_TOKEN || "";
+  if (!LINE_CHANNEL_ACCESS_TOKEN) {
+    console.warn("⚠️ LINE_CHANNEL_ACCESS_TOKEN not set, simulating overdue push message.");
+    return res.json({
+      success: true,
+      simulated: true,
+      overdueCount: overdueOrders.length,
+      messageText: msgText,
+      message: "ระบบจำลองการส่งสำเร็จ (ยังไม่ได้ใส่ LINE_CHANNEL_ACCESS_TOKEN)"
+    });
+  }
+
+  try {
+    const response = await fetch("https://api.line.me/v2/bot/message/push", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${LINE_CHANNEL_ACCESS_TOKEN}`
+      },
+      body: JSON.stringify({
+        to: ownerId,
+        messages: [{ type: "text", text: msgText }]
+      })
+    });
+
+    if (response.ok) {
+      console.log(`✅ Overdue alert sent successfully to Owner LINE ID: ${ownerId}`);
+      return res.json({
+        success: true,
+        overdueCount: overdueOrders.length,
+        messageText: msgText
+      });
+    } else {
+      const errText = await response.text();
+      console.error(`❌ Failed to send overdue push message to LINE: ${errText}`);
+      return res.status(response.status).json({
+        error: errText,
+        generatedMessage: msgText,
+        overdueCount: overdueOrders.length
+      });
+    }
+  } catch (err: any) {
+    console.error("❌ Error sending overdue push message:", err);
     return res.status(500).json({ error: err.message || "Internal server error" });
   }
 });

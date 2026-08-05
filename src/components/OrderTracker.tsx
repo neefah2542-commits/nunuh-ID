@@ -35,7 +35,8 @@ import {
   PenTool,
   ShieldCheck,
   Lock,
-  Bell
+  Bell,
+  AlertTriangle
 } from 'lucide-react';
 import PrintOrderModal from './PrintOrderModal';
 import EditOrderModal from './EditOrderModal';
@@ -73,6 +74,52 @@ export default function OrderTracker({ orders, catalogue = [], onUpdateOrderStat
   const [lineOaChatUrl, setLineOaChatUrl] = useState(() => {
     return localStorage.getItem('nunuh_line_oa_chat_url') || 'https://chat.line.biz/';
   });
+
+  const [ownerLineUserId, setOwnerLineUserId] = useState(() => {
+    return localStorage.getItem('nunuh_owner_line_user_id') || '';
+  });
+  const [isSendingOverdueAlert, setIsSendingOverdueAlert] = useState(false);
+  const [overdueAlertResult, setOverdueAlertResult] = useState<{ status: 'idle' | 'success' | 'error'; msg: string } | null>(null);
+
+  const handleSendOverdueLineAlert = async () => {
+    setIsSendingOverdueAlert(true);
+    setOverdueAlertResult(null);
+
+    try {
+      const res = await fetch('/api/send-overdue-line-alert', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ targetLineUserId: ownerLineUserId.trim() })
+      });
+
+      const data = await res.json();
+      if (res.ok && data.success) {
+        if (data.simulated) {
+          setOverdueAlertResult({
+            status: 'success',
+            msg: `🎉 แจ้งเตือนสำเร็จ! (โหมดจำลอง) พบออเดอร์เกินกำหนด ${data.overdueCount} รายการ\nข้อความสั้นที่สร้างขึ้นส่งเข้า LINE:\n${data.messageText}`
+          });
+        } else {
+          setOverdueAlertResult({
+            status: 'success',
+            msg: `🎉 ส่งการแจ้งเตือนออเดอร์เกินกำหนด ${data.overdueCount} รายการ เข้า LINE เจ้าของร้านเรียบร้อยแล้วค่ะ!`
+          });
+        }
+      } else {
+        setOverdueAlertResult({
+          status: 'error',
+          msg: data.error || 'ไม่สามารถส่งข้อความได้ กรุณาตรวจสอบการตั้งค่า LINE User ID เจ้าของร้าน'
+        });
+      }
+    } catch (err: any) {
+      setOverdueAlertResult({
+        status: 'error',
+        msg: 'เกิดข้อผิดพลาดในการเชื่อมต่อเซิร์ฟเวอร์: ' + (err.message || err)
+      });
+    } finally {
+      setIsSendingOverdueAlert(false);
+    }
+  };
 
   const [lineConfig, setLineConfig] = useState<{ tokenSet: boolean; secretSet: boolean } | null>(null);
   const [testLineUserId, setTestLineUserId] = useState('');
@@ -647,8 +694,82 @@ export default function OrderTracker({ orders, catalogue = [], onUpdateOrderStat
     document.body.removeChild(link);
   };
 
+  const todayStartBanner = new Date();
+  todayStartBanner.setHours(0, 0, 0, 0);
+
+  const overdueOrdersList = orders.filter((o) => {
+    if (!o.deliveryDate || o.status === OrderStatus.COMPLETED) return false;
+    const delDate = new Date(o.deliveryDate);
+    delDate.setHours(0, 0, 0, 0);
+    return delDate.getTime() < todayStartBanner.getTime();
+  });
+
   return (
     <div className="space-y-6">
+
+      {/* 🚨 Overdue Orders Alert Banner for LINE Owner Notification */}
+      {overdueOrdersList.length > 0 && (
+        <div className="bg-gradient-to-r from-rose-50 to-rose-100/40 border border-rose-300 p-4 rounded-2xl space-y-3 shadow-xs">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="flex items-center space-x-3">
+              <div className="p-2.5 bg-rose-600 text-white rounded-xl shrink-0 shadow-xs">
+                <AlertTriangle className="h-5 w-5 animate-bounce" />
+              </div>
+              <div>
+                <h4 className="text-xs font-black text-rose-950 flex items-center gap-1.5">
+                  <span>🚨 มีออเดอร์เกินกำหนดส่งมอบทั้งหมด {overdueOrdersList.length} รายการ!</span>
+                </h4>
+                <p className="text-[11px] text-rose-800 font-medium mt-0.5">
+                  คุณสามารถกดส่งการแจ้งเตือนรายชื่อออเดอร์ที่เกินกำหนดทั้งหมดเข้า LINE ของเจ้าของร้านได้ทันทีค่ะ
+                </p>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={handleSendOverdueLineAlert}
+              disabled={isSendingOverdueAlert}
+              className="px-4 py-2.5 bg-rose-600 hover:bg-rose-700 active:scale-98 text-white font-bold text-xs rounded-xl transition-all shadow-md hover:shadow-lg flex items-center justify-center space-x-1.5 cursor-pointer disabled:opacity-50 shrink-0"
+            >
+              <Send className="h-3.5 w-3.5" />
+              <span>{isSendingOverdueAlert ? 'กำลังส่งแจ้งเตือน...' : '📲 แจ้งเตือนเข้า LINE เจ้าของร้าน'}</span>
+            </button>
+          </div>
+
+          {/* Owner LINE ID Input prompt if missing */}
+          {!ownerLineUserId && (
+            <div className="pt-2 border-t border-rose-200/80 flex flex-col sm:flex-row sm:items-center gap-2 text-xs">
+              <span className="text-rose-900 font-bold shrink-0">📍 ระบุ LINE User ID เจ้าของร้าน/แอป:</span>
+              <input
+                type="text"
+                value={ownerLineUserId}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setOwnerLineUserId(val);
+                  localStorage.setItem('nunuh_owner_line_user_id', val);
+                  fetch('/api/settings', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ ownerLineUserId: val })
+                  }).catch(() => {});
+                }}
+                placeholder="วางรหัส LINE User ID (เช่น U1234567890abcdef...)"
+                className="flex-1 text-xs px-3 py-1.5 rounded-lg border border-rose-300 bg-white font-mono focus:outline-none focus:ring-2 focus:ring-rose-500 text-rose-950 font-bold"
+              />
+            </div>
+          )}
+
+          {overdueAlertResult && (
+            <div className={`p-3 rounded-xl text-xs font-medium whitespace-pre-wrap leading-relaxed ${
+              overdueAlertResult.status === 'success'
+                ? 'bg-emerald-100 text-emerald-900 border border-emerald-300'
+                : 'bg-rose-100 text-rose-900 border border-rose-300'
+            }`}>
+              {overdueAlertResult.msg}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Public Render URL & LINE OA Config Header */}
       <div className="bg-gradient-to-r from-amber-50 to-amber-100/30 border border-amber-200/60 p-4 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
@@ -766,6 +887,43 @@ export default function OrderTracker({ orders, catalogue = [], onUpdateOrderStat
                 <span className="text-[9px] text-natural-espresso/45 block leading-relaxed">
                   * โดยทั่วไปคือ <code className="bg-natural-sand px-1 rounded font-mono">https://chat.line.biz/</code> หรือลิงก์เฉพาะแชทของร้านคุณ เช่น <code className="bg-natural-sand px-1 rounded font-mono">https://chat.line.biz/Uxxxxxxxxxxxxxx/chat</code>
                 </span>
+              </div>
+
+              {/* Owner LINE User ID Field */}
+              <div className="space-y-1.5 md:col-span-2 bg-rose-50/60 p-3 rounded-xl border border-rose-200">
+                <label className="text-[10.5px] font-black text-rose-950 flex items-center gap-1.5">
+                  <AlertTriangle className="h-3.5 w-3.5 text-rose-600" />
+                  <span>👑 LINE User ID ของเจ้าของร้าน/แอป (สำหรับรับการแจ้งเตือนออเดอร์เกินกำหนดส่ง)</span>
+                </label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={ownerLineUserId}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setOwnerLineUserId(val);
+                      localStorage.setItem('nunuh_owner_line_user_id', val);
+                      fetch('/api/settings', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ ownerLineUserId: val })
+                      }).catch(() => {});
+                    }}
+                    placeholder="วางรหัส User ID ของเจ้าของร้าน เช่น U1234567890abcdef..."
+                    className="flex-1 text-xs px-3.5 py-2.5 rounded-xl border border-rose-300 bg-white focus:outline-none focus:ring-2 focus:ring-rose-500 font-mono text-rose-950 font-bold"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleSendOverdueLineAlert}
+                    disabled={isSendingOverdueAlert}
+                    className="px-4 py-2.5 bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs rounded-xl transition-all shadow-xs shrink-0 cursor-pointer disabled:opacity-50"
+                  >
+                    {isSendingOverdueAlert ? 'กำลังส่ง...' : 'ทดสอบส่งแจ้งเตือน 📲'}
+                  </button>
+                </div>
+                <p className="text-[9.5px] text-rose-800/80 font-medium leading-relaxed">
+                  * เมื่อตั้งค่ารหัสนี้แล้ว หากมีออเดอร์ในระบบที่เกินกำหนดวันส่งมอบ ระบบจะสามารถส่งการแจ้งเตือนสรุปรายชื่อออเดอร์เข้าห้องแชท LINE ของเจ้าของร้านได้โดยตรง
+                </p>
               </div>
 
             </div>

@@ -7,6 +7,7 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Order, OrderStatus, CatalogueItem, CustomerReview } from './types';
 import { INITIAL_ORDERS, INITIAL_CATALOGUE, INITIAL_REVIEWS } from './initialData';
+import { playNewOrderSound } from './utils/sound';
 
 // Components
 import DashboardStats from './components/DashboardStats';
@@ -31,7 +32,12 @@ import {
   Star,
   Users,
   Settings,
-  Phone
+  Phone,
+  Volume2,
+  VolumeX,
+  Bell,
+  AlertTriangle,
+  Send
 } from 'lucide-react';
 
 export default function App() {
@@ -78,6 +84,40 @@ export default function App() {
   });
 
   const [showAddStaffModal, setShowAddStaffModal] = useState<boolean>(false);
+  const [showStaffDetailModal, setShowStaffDetailModal] = useState<boolean>(false);
+
+  const [soundEnabled, setSoundEnabled] = useState<boolean>(() => {
+    return localStorage.getItem('nunuh_sound_enabled') !== 'false';
+  });
+
+  const [ownerLineUserId, setOwnerLineUserId] = useState<string>(() => {
+    return localStorage.getItem('nunuh_owner_line_user_id') || '';
+  });
+
+  const knownOrderIdsRef = React.useRef<Set<string> | null>(null);
+
+  // Sound notification trigger when new order arrives
+  useEffect(() => {
+    if (!orders || orders.length === 0) return;
+
+    const currentIds = new Set(orders.map(o => o.id));
+
+    if (knownOrderIdsRef.current !== null) {
+      let hasNewOrder = false;
+      for (const id of currentIds) {
+        if (!knownOrderIdsRef.current.has(id)) {
+          hasNewOrder = true;
+          break;
+        }
+      }
+
+      if (hasNewOrder && soundEnabled) {
+        playNewOrderSound();
+      }
+    }
+
+    knownOrderIdsRef.current = currentIds;
+  }, [orders, soundEnabled]);
 
   const handleStaffLogin = (name: string, branch: string) => {
     const newStaff = { id: 'staff-' + Date.now() + '-' + Math.random().toString(36).substring(2, 5), name: name.trim(), branch: branch.trim(), loginTime: Date.now() };
@@ -87,6 +127,13 @@ export default function App() {
     setCurrentStaff({ name: newStaff.name, branch: newStaff.branch });
     localStorage.setItem('nunuh_logged_in_staff', JSON.stringify({ name: newStaff.name, branch: newStaff.branch }));
     setShowAddStaffModal(false);
+
+    // Sync login session to backend server
+    fetch('/api/staff/heartbeat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(newStaff)
+    }).catch(() => {});
   };
 
   const handleRemoveStaffSession = (id: string) => {
@@ -100,6 +147,13 @@ export default function App() {
       setCurrentStaff(null);
       localStorage.removeItem('nunuh_logged_in_staff');
     }
+
+    // Sync logout session to backend server
+    fetch('/api/staff/logout', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id })
+    }).catch(() => {});
   };
 
   const handleStaffLogout = () => {
@@ -107,6 +161,13 @@ export default function App() {
     setCurrentStaff(null);
     localStorage.removeItem('nunuh_active_staff_list');
     localStorage.removeItem('nunuh_logged_in_staff');
+
+    // Sync logout all sessions to backend server
+    fetch('/api/staff/logout', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({})
+    }).catch(() => {});
   };
 
   const filteredOrdersForStaff = isStaffMode && currentStaff?.branch
@@ -312,6 +373,20 @@ export default function App() {
     } catch (e) {
       console.warn('Failed to sync reviews:', e);
     }
+
+    // 5. Sync active staff online list
+    try {
+      const res = await fetch('/api/staff');
+      if (res.ok) {
+        const serverStaff = await res.json();
+        if (Array.isArray(serverStaff)) {
+          setActiveStaffList(serverStaff);
+          localStorage.setItem('nunuh_active_staff_list', JSON.stringify(serverStaff));
+        }
+      }
+    } catch (e) {
+      console.warn('Failed to sync staff list:', e);
+    }
   };
 
   // โหลดข้อมูลออเดอร์และแคตตาล็อกจาก LocalStorage หรือตั้งค่าด้วยชุดข้อมูลเริ่มต้น
@@ -452,6 +527,9 @@ export default function App() {
             } else if (payload.type === 'reviews_updated' && Array.isArray(payload.data)) {
               setReviews(payload.data);
               localStorage.setItem('nunuh_reviews', JSON.stringify(payload.data));
+            } else if (payload.type === 'staff_updated' && Array.isArray(payload.data)) {
+              setActiveStaffList(payload.data);
+              localStorage.setItem('nunuh_active_staff_list', JSON.stringify(payload.data));
             } else if (payload.type === 'settings_updated' && payload.data) {
               if (payload.data.boutiquePhone) {
                 setBoutiquePhone(payload.data.boutiquePhone);
@@ -540,6 +618,30 @@ export default function App() {
       clearInterval(serverPollInterval);
     };
   }, []);
+
+  // ส่งสัญญาณ Heartbeat ของพนักงานที่ล็อกอินอยู่เข้าสู่ Server เพื่ออัปเดตสถานะออนไลน์เรียลไทม์
+  useEffect(() => {
+    const sendHeartbeat = () => {
+      if (currentStaff) {
+        const matchingStaff = activeStaffList.find(s => s.name === currentStaff.name && s.branch === currentStaff.branch);
+        const id = matchingStaff?.id || ('staff-' + currentStaff.name.replace(/\s+/g, ''));
+        fetch('/api/staff/heartbeat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            id,
+            name: currentStaff.name,
+            branch: currentStaff.branch,
+            loginTime: matchingStaff?.loginTime || Date.now()
+          })
+        }).catch(() => {});
+      }
+    };
+
+    sendHeartbeat();
+    const interval = setInterval(sendHeartbeat, 12000);
+    return () => clearInterval(interval);
+  }, [currentStaff]);
 
   // บันทึกข้อมูลลง LocalStorage พร้อมผสานข้อมูลป้องกันการชนกัน (Concurrent Save Safety)
   const saveOrdersToStorage = (updatedOrders: Order[], deletedId?: string) => {
@@ -1008,15 +1110,61 @@ export default function App() {
               </div>
 
               {!isCustomerMode && !isStaffMode && (
-                <button
-                  type="button"
-                  onClick={() => setIsSettingsOpen(true)}
-                  className="flex items-center space-x-1 px-3 py-1.5 rounded-xl text-xs font-bold bg-white hover:bg-natural-sand/30 text-natural-espresso border border-natural-wheat/80 transition-all cursor-pointer shadow-3xs hover:scale-102"
-                  title="ตั้งค่าข้อมูลห้องเสื้อ"
-                >
-                  <Settings className="h-3.5 w-3.5 text-natural-clay" />
-                  <span className="hidden md:inline">ตั้งค่าร้าน</span>
-                </button>
+                <>
+                  <button
+                    type="button"
+                    onClick={() => setShowStaffDetailModal(!showStaffDetailModal)}
+                    className="flex items-center space-x-2 px-3 py-1.5 rounded-xl text-xs font-bold bg-emerald-50 hover:bg-emerald-100/90 text-emerald-950 border border-emerald-200/80 transition-all cursor-pointer shadow-3xs"
+                    title="คลิกเพื่อดูรายชื่อพนักงานที่กำลังออนไลน์อยู่ขณะนี้"
+                  >
+                    <span className="relative flex h-2 w-2">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                    </span>
+                    <span className="hidden lg:inline">พนักงานออนไลน์:</span>
+                    <strong className="text-emerald-700 font-extrabold">{activeStaffList.length} คน</strong>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const next = !soundEnabled;
+                      setSoundEnabled(next);
+                      localStorage.setItem('nunuh_sound_enabled', String(next));
+                      if (next) {
+                        playNewOrderSound();
+                      }
+                    }}
+                    className={`flex items-center space-x-1 px-3 py-1.5 rounded-xl text-xs font-bold border transition-all cursor-pointer shadow-3xs hover:scale-102 ${
+                      soundEnabled
+                        ? 'bg-amber-50 text-amber-900 border-amber-300'
+                        : 'bg-gray-100 text-gray-500 border-gray-200 opacity-70'
+                    }`}
+                    title={soundEnabled ? 'เสียงแจ้งเตือนออเดอร์ใหม่: เปิดอยู่ (คลิกเพื่อปิด)' : 'เสียงแจ้งเตือนออเดอร์ใหม่: ปิดอยู่ (คลิกเพื่อเปิด)'}
+                  >
+                    {soundEnabled ? (
+                      <>
+                        <Volume2 className="h-3.5 w-3.5 text-amber-600" />
+                        <span className="hidden sm:inline">เปิดเสียง</span>
+                      </>
+                    ) : (
+                      <>
+                        <VolumeX className="h-3.5 w-3.5 text-gray-400" />
+                        <span className="hidden sm:inline">ปิดเสียง</span>
+                      </>
+                    )}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setIsSettingsOpen(true)}
+                    className="flex items-center space-x-1 px-3 py-1.5 rounded-xl text-xs font-bold bg-white hover:bg-natural-sand/30 text-natural-espresso border border-natural-wheat/80 transition-all cursor-pointer shadow-3xs hover:scale-102"
+                    title="ตั้งค่าข้อมูลห้องเสื้อ"
+                  >
+                    <Settings className="h-3.5 w-3.5 text-natural-clay" />
+                    <span className="hidden md:inline">ตั้งค่าร้าน</span>
+                  </button>
+                </>
               )}
             </div>
 
@@ -1417,6 +1565,68 @@ export default function App() {
                     </p>
                   </div>
 
+                  {/* Sound Notification Setting */}
+                  <div className="pt-3 border-t border-natural-wheat/50 space-y-2">
+                    <label className="block text-xs font-bold text-natural-espresso/80 flex items-center justify-between">
+                      <span className="flex items-center space-x-1">
+                        <Bell className="h-3.5 w-3.5 text-amber-600" />
+                        <span>เปิดเสียงแจ้งเตือนออเดอร์ใหม่ (Sound Alert)</span>
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const next = !soundEnabled;
+                          setSoundEnabled(next);
+                          localStorage.setItem('nunuh_sound_enabled', String(next));
+                          if (next) playNewOrderSound();
+                        }}
+                        className={`px-2.5 py-1 text-[11px] font-bold rounded-lg border transition-all cursor-pointer ${
+                          soundEnabled ? 'bg-amber-100 text-amber-900 border-amber-300' : 'bg-gray-100 text-gray-500 border-gray-200'
+                        }`}
+                      >
+                        {soundEnabled ? '🔔 เปิดใช้งาน' : '🔕 ปิดเสียง'}
+                      </button>
+                    </label>
+                    <div className="flex justify-between items-center bg-amber-50/50 p-2.5 rounded-xl border border-amber-100">
+                      <span className="text-[10.5px] text-amber-900 font-medium">ทดสอบระบบเสียงกระดิ่งแจ้งเตือน:</span>
+                      <button
+                        type="button"
+                        onClick={() => playNewOrderSound()}
+                        className="px-3 py-1 bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs rounded-lg shadow-2xs transition-all cursor-pointer flex items-center gap-1"
+                      >
+                        <Volume2 className="h-3 w-3" />
+                        <span>ทดลองฟังเสียง</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Owner LINE ID Setting */}
+                  <div className="pt-3 border-t border-natural-wheat/50 space-y-1.5">
+                    <label className="block text-xs font-bold text-natural-espresso/80 flex items-center space-x-1">
+                      <AlertTriangle className="h-3.5 w-3.5 text-rose-600" />
+                      <span>LINE User ID เจ้าของร้าน (รับแจ้งเตือนออเดอร์เกินกำหนด)</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={ownerLineUserId}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setOwnerLineUserId(val);
+                        localStorage.setItem('nunuh_owner_line_user_id', val);
+                        fetch('/api/settings', {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ ownerLineUserId: val })
+                        }).catch(() => {});
+                      }}
+                      placeholder="เช่น Uf150dba359d90219f8d..."
+                      className="w-full text-xs px-3 py-2.5 rounded-xl border border-natural-wheat focus:outline-none focus:ring-2 focus:ring-rose-500/20 bg-white font-mono text-rose-950 font-bold"
+                    />
+                    <p className="text-[10px] text-natural-espresso/50 leading-relaxed">
+                      * ใส่ LINE User ID ของเจ้าของร้าน เพื่อให้ระบบสามารถส่งสรุปออเดอร์ที่เกินกำหนดวันส่งมอบเข้า LINE ส่วนตัวได้
+                    </p>
+                  </div>
+
                   <div className="pt-3 border-t border-natural-wheat/50 flex justify-end space-x-2">
                     <button
                       type="button"
@@ -1440,6 +1650,92 @@ export default function App() {
           </div>
         )}
       </AnimatePresence>
+
+      {/* 🟢 Floating Small Corner Badge for Logged-In Staff Count - Main App Only */}
+      {!isCustomerMode && !isStaffMode && (
+        <div className="fixed bottom-4 right-4 z-40 no-print">
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => setShowStaffDetailModal(!showStaffDetailModal)}
+              className="flex items-center space-x-2.5 px-3.5 py-2 rounded-full bg-white/95 border border-emerald-300 text-emerald-950 hover:bg-emerald-50 transition-all shadow-lg hover:shadow-xl cursor-pointer backdrop-blur-md"
+              title="คลิกเพื่อดูรายชื่อพนักงานที่กำลังเข้าสู่ระบบขณะนี้"
+            >
+              <span className="relative flex h-2.5 w-2.5">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+              </span>
+              <div className="flex items-center space-x-1.5 text-xs font-bold">
+                <span>👥 พนักงานออนไลน์:</span>
+                <span className="px-1.5 py-0.5 rounded-md bg-emerald-100 text-emerald-800 font-black text-xs">
+                  {activeStaffList.length} คน
+                </span>
+              </div>
+            </button>
+
+            {/* Popover showing details of logged-in staff */}
+            {showStaffDetailModal && (
+              <div className="absolute bottom-12 right-0 w-80 bg-white rounded-2xl p-4 shadow-2xl border border-emerald-200 text-natural-espresso z-50 text-xs animate-in fade-in slide-in-from-bottom-2 duration-200">
+                <div className="flex items-center justify-between pb-2.5 border-b border-natural-sand/50 mb-3">
+                  <div className="flex items-center space-x-2">
+                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                    <h4 className="font-bold text-natural-espresso text-xs font-serif">
+                      พนักงานที่กำลังออนไลน์อยู่ ({activeStaffList.length} คน)
+                    </h4>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowStaffDetailModal(false)}
+                    className="text-natural-espresso/40 hover:text-natural-espresso font-bold p-1 text-sm cursor-pointer"
+                  >
+                    ✕
+                  </button>
+                </div>
+
+                {activeStaffList.length === 0 ? (
+                  <div className="py-4 text-center text-natural-espresso/60 italic text-[11px]">
+                    ยังไม่มีพนักงานเข้าสู่ระบบในขณะนี้
+                  </div>
+                ) : (
+                  <div className="space-y-2 max-h-52 overflow-y-auto pr-1">
+                    {activeStaffList.map((st) => (
+                      <div
+                        key={st.id}
+                        className="flex items-center justify-between bg-emerald-50/70 p-2.5 rounded-xl border border-emerald-200/80 text-emerald-950"
+                      >
+                        <div className="flex items-center space-x-2.5">
+                          <span className="text-base">👤</span>
+                          <div>
+                            <p className="font-bold text-xs">{st.name}</p>
+                            <p className="text-[10px] text-emerald-800/80">{st.branch}</p>
+                          </div>
+                        </div>
+                        <span className="text-[10px] bg-emerald-200/90 text-emerald-900 px-2 py-0.5 rounded-md font-bold">
+                          ออนไลน์ 🟢
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                <div className="mt-3 pt-2.5 border-t border-natural-sand/40 flex items-center justify-between text-[10px] text-natural-espresso/60">
+                  <span>ซิงค์ข้อมูล Real-time 100%</span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowAddStaffModal(true);
+                      setShowStaffDetailModal(false);
+                    }}
+                    className="text-emerald-700 hover:text-emerald-900 font-bold underline cursor-pointer"
+                  >
+                    + เพิ่มพนักงาน
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* 3. ATELIER FOOTER */}
       <footer className="mt-20 border-t border-natural-wheat bg-white/40 py-10 text-center text-natural-espresso/50 text-xs">
