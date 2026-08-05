@@ -3,7 +3,7 @@ import { CustomerReview, Order, OrderStatus } from '../types';
 import { 
   Star, Search, Filter, Plus, Upload, X, Check, Trash2, 
   Scissors, MessageSquare, Clipboard, Award, TrendingUp, Sparkles, MessageCircle,
-  Share2
+  Share2, Send
 } from 'lucide-react';
 import { compressImage } from '../utils/image';
 import { motion, AnimatePresence } from 'motion/react';
@@ -147,6 +147,46 @@ export default function ReviewDashboard({
     setShowAddModal(false);
   };
 
+  const sendReviewLinkToCustomer = async (order: Order) => {
+    const directLink = `${window.location.origin}/?mode=customer&search=${order.orderNumber}`;
+    const reviewInvitationText = `🌟 ห้องเสื้อ NUNUH - ขอรบกวนประเมินความพึงพอใจและเขียนรีวิวสำหรับชุด ${order.dressType} (${order.orderNumber})\n\nเรียนคุณ ${order.customerName}\nท่านสามารถกดเปิดลิงก์ด้านล่างเพื่อเขียนรีวิวและให้คะแนนความพึงพอใจได้ทันทีโดยไม่ต้องค้นหาเองค่ะ 👇\n🔗 ${directLink}\n\nขอขอบพระคุณล่วงหน้าค่ะ 🙏✨`;
+
+    // 1. Copy to clipboard automatically
+    try {
+      await navigator.clipboard.writeText(reviewInvitationText);
+    } catch (e) {}
+
+    // 2. Push message via LINE API if lineUserId exists
+    let pushedViaApi = false;
+    if (order.lineUserId) {
+      try {
+        const res = await fetch('/api/send-status', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            userId: order.lineUserId,
+            message: reviewInvitationText
+          })
+        });
+        const data = await res.json();
+        if (res.ok && data.success) {
+          pushedViaApi = true;
+        }
+      } catch (err) {}
+    }
+
+    // 3. Open LINE messaging / share scheme directly
+    const lineShareUrl = `https://line.me/R/msg/text/?${encodeURIComponent(reviewInvitationText)}`;
+    window.open(lineShareUrl, '_blank');
+
+    // 4. Alert user
+    if (pushedViaApi) {
+      alert(`📲 ส่งลิงก์เขียนรีวิวให้ คุณ${order.customerName.replace('คุณ', '').trim()} เข้า LINE เรียบร้อยแล้วค่ะ! ✨`);
+    } else {
+      alert(`📲 ส่งลิงก์เขียนรีวิวให้ คุณ${order.customerName.replace('คุณ', '').trim()} เรียบร้อยแล้วค่ะ!\n(เปิดแอป LINE พร้อมคัดลอกข้อความลง Clipboard ให้อัตโนมัติค่ะ) ✨`);
+    }
+  };
+
   return (
     <div id="review-dashboard-panel" className="space-y-6">
       
@@ -275,40 +315,41 @@ export default function ReviewDashboard({
             <span className="font-bold text-amber-800 flex items-center gap-1">
               <span>💡 คำแนะนำเพื่อความสะดวกรวดเร็ว:</span>
             </span>
-            <p>ทางร้านสามารถกดปุ่ม <span className="font-bold text-natural-clay">"คัดลอกลิงก์รีวิวตรง"</span> จากรายชื่อออเดอร์สำเร็จด้านล่างนี้ได้ทันที ระบบจะสร้างลิงก์พิเศษที่<b>ค้นหาข้อมูลและรหัสชุดของลูกค้าให้อัตโนมัติ</b> ลูกค้าสามารถเปิดลิงก์เข้ามาแล้วกดปุ่มเขียนรีวิวได้ทันทีโดยไม่ต้องกรอกเบอร์โทรค้นหาเองค่ะ!</p>
+            <p>ทางร้านสามารถกดปุ่ม <span className="font-bold text-pink-700">"ส่งลิงก์ให้ลูกค้า 📲"</span> จากรายชื่อออเดอร์สำเร็จด้านล่างนี้ได้ทันที ระบบจะส่งลิงก์ตรงสำหรับ<b>ค้นหาข้อมูลและรหัสชุดของลูกค้าให้อัตโนมัติเข้า LINE</b> ลูกค้ากดลิงก์เขียนรีวิวได้ทันทีโดยไม่ต้องกรอกเบอร์โทรค้นหาเองค่ะ!</p>
           </div>
         </div>
 
         {/* Unreviewed completed orders direct link buttons */}
         {unreviewedCompletedOrders.length > 0 ? (
           <div className="border-t border-natural-wheat/40 pt-3.5 space-y-2">
-            <span className="block text-[10px] font-extrabold text-natural-espresso/60 uppercase tracking-wider">
-              📋 รายชื่อออเดอร์จัดส่งแล้วที่ยังไม่ได้เขียนรีวิว ({unreviewedCompletedOrders.length} ออเดอร์)
+            <span className="block text-[11px] font-bold text-natural-espresso/70 flex items-center justify-between">
+              <span className="flex items-center gap-1.5">
+                <span>📋 รายชื่อออเดอร์จัดส่งแล้วที่ยังไม่ได้เขียนรีวิว ({unreviewedCompletedOrders.length} ออเดอร์)</span>
+              </span>
             </span>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2.5 max-h-44 overflow-y-auto pr-1 scrollbar-thin">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2.5 max-h-56 overflow-y-auto pr-1 scrollbar-thin">
               {unreviewedCompletedOrders.map((order) => {
-                const directLink = `${window.location.origin}/?mode=customer&search=${order.orderNumber}`;
                 return (
-                  <div key={order.id} className="bg-stone-50/50 border border-natural-wheat/60 p-2.5 rounded-xl flex items-center justify-between text-xs hover:border-natural-clay/50 transition-all">
+                  <div key={order.id} className="bg-stone-50/70 border border-pink-200/80 p-3 rounded-2xl flex items-center justify-between text-xs hover:border-pink-300 hover:bg-pink-50/40 transition-all shadow-3xs group">
                     <div className="space-y-0.5 min-w-0 mr-2">
                       <div className="flex items-center space-x-1.5">
-                        <span className="font-mono font-black text-natural-espresso">{order.orderNumber}</span>
-                        <span className="text-[10px] font-bold text-natural-espresso/70 truncate">{order.customerName}</span>
+                        <span className="font-mono font-black text-pink-950 text-xs">{order.orderNumber}</span>
+                        <span className="text-[11px] font-bold text-natural-espresso truncate">{order.customerName}</span>
                       </div>
-                      <p className="text-[10px] text-natural-espresso/50 truncate font-serif">{order.dressType} — {order.fabricColor}</p>
+                      <p className="text-[10px] text-natural-espresso/60 truncate font-serif">{order.dressType} — {order.fabricColor || 'ตามแบบ'}</p>
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        navigator.clipboard.writeText(directLink);
-                        alert(`คัดลอกลิงก์รีวิวตรงสำหรับ คุณ ${order.customerName.replace('คุณ', '').trim()} (${order.orderNumber}) เรียบร้อยค่ะ! 📋`);
-                      }}
-                      className="bg-natural-clay/10 hover:bg-natural-clay text-natural-clay hover:text-white px-2.5 py-1.5 rounded-lg text-[10px] font-bold transition-all flex items-center space-x-1 cursor-pointer shrink-0"
-                      title="คัดลอกลิงก์รีวิวอัตโนมัติสำหรับส่งให้ลูกค้ารายนี้"
-                    >
-                      <Clipboard className="h-3 w-3" />
-                      <span>คัดลอกลิงก์</span>
-                    </button>
+
+                    <div className="flex items-center space-x-1.5 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => sendReviewLinkToCustomer(order)}
+                        className="bg-pink-600 hover:bg-pink-700 text-white border border-pink-600 px-3 py-1.5 rounded-xl text-[11px] font-extrabold transition-all flex items-center space-x-1 cursor-pointer shadow-3xs active:scale-95 hover:shadow-2xs"
+                        title="กดส่งลิงก์เขียนรีวิวตรงให้ลูกค้ารายนี้ผ่าน LINE / Message ทันที"
+                      >
+                        <Send className="h-3.5 w-3.5" />
+                        <span>ส่งลิงก์ให้ลูกค้า 📲</span>
+                      </button>
+                    </div>
                   </div>
                 );
               })}

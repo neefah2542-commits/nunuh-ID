@@ -36,7 +36,8 @@ import {
   ShieldCheck,
   Lock,
   Bell,
-  AlertTriangle
+  AlertTriangle,
+  Star
 } from 'lucide-react';
 import PrintOrderModal from './PrintOrderModal';
 import EditOrderModal from './EditOrderModal';
@@ -1832,28 +1833,78 @@ export default function OrderTracker({ orders, catalogue = [], onUpdateOrderStat
                               <Printer className="h-3.5 w-3.5" />
                               <span>พิมพ์ใบออเดอร์ 🖨️</span>
                             </button>
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                const currentStatusCfg = STATUS_MAP[order.status];
-                                const discountVal = order.discount || 0;
-                                const unpaid = Math.max(0, order.price - order.deposit - discountVal);
-                                const formattedDelivery = new Date(order.deliveryDate).toLocaleDateString('th-TH', {
-                                  day: 'numeric',
-                                  month: 'long',
-                                  year: 'numeric'
-                                });
-                                const portalUrl = `${publicUrl}?tab=customer&search=${encodeURIComponent(order.customerPhone)}&mode=customer`;
-                                const message = `⚜️ อัปเดตสถานะชุดสั่งตัด NUNUH Boutique ⚜️\n\nเรียนคุณ: ${order.customerName}\nรหัสออเดอร์: ${order.orderNumber}\nประเภทชุด: ${order.dressType}\n\n📍 สถานะปัจจุบัน: [${currentStatusCfg.label}]\n➡️ "${currentStatusCfg.description}"\n\n📅 กำหนดส่งมอบ: ${formattedDelivery}\n\nท่านสามารถตรวจสอบข้อมูลสัดส่วนและติดตามความคืบหน้าแบบละเอียดด้วยตนเองได้ที่นี่:\n🔗 ${portalUrl}\n\nขอขอบพระคุณที่เลือกใช้บริการค่ะ ✨`;
-                                
-                                navigator.clipboard.writeText(message);
-                                alert(`คัดลอกข้อความสถานะอัปเดตของ ${order.customerName} เรียบร้อยแล้ว! สามารถนำไปส่งให้ลูกค้าได้ทันทีค่ะ 📋`);
-                              }}
-                              className="bg-natural-sand hover:bg-natural-wheat/80 text-natural-espresso text-[11px] font-bold py-2.5 px-3 rounded-xl transition-all flex items-center justify-center space-x-1.5 cursor-pointer border border-natural-wheat/50 flex-1"
-                            >
-                              <span>คัดลอกข้อความ 📋</span>
-                            </button>
+                            {order.status === OrderStatus.COMPLETED ? (
+                              <button
+                                type="button"
+                                onClick={async (e) => {
+                                  e.stopPropagation();
+                                  const directLink = `${window.location.origin}/?mode=customer&search=${order.orderNumber}`;
+                                  const reviewInvitationText = `🌟 ห้องเสื้อ NUNUH - ขอรบกวนประเมินความพึงพอใจและเขียนรีวิวสำหรับชุด ${order.dressType} (${order.orderNumber})\n\nเรียนคุณ ${order.customerName}\nท่านสามารถกดเปิดลิงก์ด้านล่างเพื่อเขียนรีวิวและให้คะแนนความพึงพอใจได้ทันทีโดยไม่ต้องค้นหาเองค่ะ 👇\n🔗 ${directLink}\n\nขอขอบพระคุณล่วงหน้าค่ะ 🙏✨`;
+                                  
+                                  // 1. Copy to clipboard
+                                  try {
+                                    await navigator.clipboard.writeText(reviewInvitationText);
+                                  } catch (err) {}
+
+                                  // 2. LINE Push API if lineUserId exists
+                                  let pushed = false;
+                                  if (order.lineUserId) {
+                                    try {
+                                      const res = await fetch('/api/send-status', {
+                                        method: 'POST',
+                                        headers: { 'Content-Type': 'application/json' },
+                                        body: JSON.stringify({
+                                          userId: order.lineUserId,
+                                          message: reviewInvitationText
+                                        })
+                                      });
+                                      const data = await res.json();
+                                      if (res.ok && data.success) {
+                                        pushed = true;
+                                      }
+                                    } catch (err) {}
+                                  }
+
+                                  // 3. Open LINE app chat / message scheme
+                                  const lineShareUrl = `https://line.me/R/msg/text/?${encodeURIComponent(reviewInvitationText)}`;
+                                  window.open(lineShareUrl, '_blank');
+
+                                  // 4. Alert
+                                  if (pushed) {
+                                    alert(`📲 ส่งลิงก์เขียนรีวิวให้ คุณ${order.customerName.replace('คุณ', '').trim()} เข้า LINE เรียบร้อยแล้วค่ะ! ✨`);
+                                  } else {
+                                    alert(`📲 ส่งลิงก์เขียนรีวิวให้ คุณ${order.customerName.replace('คุณ', '').trim()} เรียบร้อยแล้วค่ะ!\n(เปิดแอป LINE พร้อมคัดลอกข้อความลง Clipboard ให้อัตโนมัติค่ะ) ✨`);
+                                  }
+                                }}
+                                className="bg-pink-600 hover:bg-pink-700 text-white text-[11px] font-extrabold py-2.5 px-3 rounded-xl transition-all flex items-center justify-center space-x-1.5 cursor-pointer border border-pink-600 shadow-xs active:scale-95 flex-1"
+                              >
+                                <Send className="h-3.5 w-3.5" />
+                                <span>ส่งลิงก์เขียนรีวิวให้ลูกค้า 📲</span>
+                              </button>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  const currentStatusCfg = STATUS_MAP[order.status];
+                                  const discountVal = order.discount || 0;
+                                  const unpaid = Math.max(0, order.price - order.deposit - discountVal);
+                                  const formattedDelivery = new Date(order.deliveryDate).toLocaleDateString('th-TH', {
+                                    day: 'numeric',
+                                    month: 'long',
+                                    year: 'numeric'
+                                  });
+                                  const portalUrl = `${publicUrl}?tab=customer&search=${encodeURIComponent(order.customerPhone)}&mode=customer`;
+                                  const message = `⚜️ อัปเดตสถานะชุดสั่งตัด NUNUH Boutique ⚜️\n\nเรียนคุณ: ${order.customerName}\nรหัสออเดอร์: ${order.orderNumber}\nประเภทชุด: ${order.dressType}\n\n📍 สถานะปัจจุบัน: [${currentStatusCfg.label}]\n➡️ "${currentStatusCfg.description}"\n\n📅 กำหนดส่งมอบ: ${formattedDelivery}\n\nท่านสามารถตรวจสอบข้อมูลสัดส่วนและติดตามความคืบหน้าแบบละเอียดด้วยตนเองได้ที่นี่:\n🔗 ${portalUrl}\n\nขอขอบพระคุณที่เลือกใช้บริการค่ะ ✨`;
+                                  
+                                  navigator.clipboard.writeText(message);
+                                  alert(`คัดลอกข้อความสถานะอัปเดตของ ${order.customerName} เรียบร้อยแล้ว! สามารถนำไปส่งให้ลูกค้าได้ทันทีค่ะ 📋`);
+                                }}
+                                className="bg-natural-sand hover:bg-natural-wheat/80 text-natural-espresso text-[11px] font-bold py-2.5 px-3 rounded-xl transition-all flex items-center justify-center space-x-1.5 cursor-pointer border border-natural-wheat/50 flex-1"
+                              >
+                                <span>คัดลอกข้อความ 📋</span>
+                              </button>
+                            )}
                             <button
                               type="button"
                               onClick={(e) => {
