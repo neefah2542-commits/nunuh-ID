@@ -148,7 +148,7 @@ export default function ReviewDashboard({
   };
 
   const sendReviewLinkToCustomer = async (order: Order) => {
-    const directLink = `${window.location.origin}/?mode=customer&search=${order.orderNumber}`;
+    const directLink = `${window.location.origin}/?mode=customer&search=${order.orderNumber}&action=review`;
     const reviewInvitationText = `🌟 ห้องเสื้อ NUNUH - ขอรบกวนประเมินความพึงพอใจและเขียนรีวิวสำหรับชุด ${order.dressType} (${order.orderNumber})\n\nเรียนคุณ ${order.customerName}\nท่านสามารถกดเปิดลิงก์ด้านล่างเพื่อเขียนรีวิวและให้คะแนนความพึงพอใจได้ทันทีโดยไม่ต้องค้นหาเองค่ะ 👇\n🔗 ${directLink}\n\nขอขอบพระคุณล่วงหน้าค่ะ 🙏✨`;
 
     // 1. Copy to clipboard automatically

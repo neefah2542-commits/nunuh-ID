@@ -48,6 +48,7 @@ export default function App() {
   const [activeTab, setActiveTab] = useState<string>('tracker'); // tracker, orderForm, calendar, catalogue, reviews
   const [isCustomerMode, setIsCustomerMode] = useState<boolean>(false);
   const [isStaffMode, setIsStaffMode] = useState<boolean>(false);
+  const [isReviewDirectLink, setIsReviewDirectLink] = useState<boolean>(false);
   const [activeStaffList, setActiveStaffList] = useState<Array<{ id: string; name: string; branch: string; loginTime: number }>>(() => {
     const saved = localStorage.getItem('nunuh_active_staff_list');
     if (saved) {
@@ -464,6 +465,10 @@ export default function App() {
     const modeParam = params.get('mode');
     const roleParam = params.get('role');
     const tabParam = params.get('tab');
+    const actionParam = params.get('action');
+    if (actionParam === 'review' || params.get('review') === 'true') {
+      setIsReviewDirectLink(true);
+    }
     const savedMode = localStorage.getItem('nunuh_user_mode');
     
     // ตรวจสอบพารามิเตอร์ URL เพื่อกำหนดโหมดการใช้งาน
@@ -1027,13 +1032,20 @@ export default function App() {
                 )}
               </nav>
             ) : (
-              <button
-                type="button"
-                onClick={handleGoHome}
-                className="flex items-center space-x-2 px-4 py-2.5 rounded-xl text-xs font-bold bg-natural-espresso text-natural-cream hover:bg-natural-clay transition-all shadow-xs cursor-pointer"
-              >
-                <span>🏠 กลับสู่หน้าแรกระบบห้องเสื้อ</span>
-              </button>
+              !isReviewDirectLink ? (
+                <button
+                  type="button"
+                  onClick={handleGoHome}
+                  className="flex items-center space-x-2 px-4 py-2.5 rounded-xl text-xs font-bold bg-natural-espresso text-natural-cream hover:bg-natural-clay transition-all shadow-xs cursor-pointer"
+                >
+                  <span>🏠 กลับสู่หน้าแรกระบบห้องเสื้อ</span>
+                </button>
+              ) : (
+                <div className="flex items-center space-x-1.5 px-3.5 py-2 rounded-xl text-xs font-extrabold bg-pink-100 text-pink-950 border border-pink-200/80 shadow-3xs">
+                  <Star className="h-4 w-4 fill-amber-400 text-amber-400" />
+                  <span>NUNUH Customer Review Portal</span>
+                </div>
+              )
             )}
 
             {/* Elegant Theme Switcher */}

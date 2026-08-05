@@ -28,7 +28,8 @@ import {
   History,
   Camera,
   Trash2,
-  Star
+  Star,
+  Lock
 } from 'lucide-react';
 import PrintOrderModal from './PrintOrderModal';
 import FeedbackSection from './FeedbackSection';
@@ -69,6 +70,8 @@ export default function CustomerPortal({
   const [searchedOrders, setSearchedOrders] = useState<Order[] | null>(null);
   const [hasSearched, setHasSearched] = useState(false);
   const [isLineLocked, setIsLineLocked] = useState(false);
+  const [isReviewOnlyMode, setIsReviewOnlyMode] = useState(false);
+  const [lockedOrderNumber, setLockedOrderNumber] = useState('');
 
   const [printingOrder, setPrintingOrder] = useState<Order | null>(null);
 
@@ -325,24 +328,54 @@ export default function CustomerPortal({
       const params = new URLSearchParams(window.location.search);
       const urlSearchParam = params.get('search');
       const urlPhoneParam = params.get('phone');
+      const actionParam = params.get('action');
+      const isReviewAction = actionParam === 'review' || params.get('review') === 'true';
       const queryToUse = urlSearchParam || urlPhoneParam || '';
 
       if (queryToUse) {
         setSearchQuery(queryToUse);
-        const { matchedOrders, searched } = performSearch(queryToUse, orders);
-        setSearchedOrders(matchedOrders);
-        setHasSearched(searched);
+        if (isReviewAction) {
+          setIsReviewOnlyMode(true);
+          setLockedOrderNumber(queryToUse);
+          const cleanQuery = queryToUse.trim().toLowerCase();
+          const singleOrder = orders.find(o => o.orderNumber.toLowerCase() === cleanQuery || o.id === cleanQuery);
+          if (singleOrder) {
+            setSearchedOrders([singleOrder]);
+            setHasSearched(true);
+            const existingReview = reviews?.find(r => r.orderId === singleOrder.id || r.orderNumber === singleOrder.orderNumber);
+            if (!existingReview) {
+              setActiveReviewOrderId(singleOrder.id);
+            }
+          } else {
+            const { matchedOrders, searched } = performSearch(queryToUse, orders);
+            setSearchedOrders(matchedOrders);
+            setHasSearched(searched);
+          }
+        } else {
+          const { matchedOrders, searched } = performSearch(queryToUse, orders);
+          setSearchedOrders(matchedOrders);
+          setHasSearched(searched);
+        }
       }
       isInitialUrlCheckDone.current = true;
     } else if (hasSearched && searchQuery.trim()) {
-      // Background order update (e.g. server poll): re-sync searched orders without wiping searchQuery
-      const { matchedOrders } = performSearch(searchQuery, orders);
-      setSearchedOrders(matchedOrders);
+      if (isReviewOnlyMode && lockedOrderNumber) {
+        const cleanQuery = lockedOrderNumber.trim().toLowerCase();
+        const singleOrder = orders.find(o => o.orderNumber.toLowerCase() === cleanQuery || o.id === cleanQuery);
+        if (singleOrder) {
+          setSearchedOrders([singleOrder]);
+        }
+      } else {
+        // Background order update (e.g. server poll): re-sync searched orders without wiping searchQuery
+        const { matchedOrders } = performSearch(searchQuery, orders);
+        setSearchedOrders(matchedOrders);
+      }
     }
   }, [orders]);
 
   // Handle Search Input Change with live search
   const handleSearchInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (isReviewOnlyMode) return;
     const val = e.target.value;
     setSearchQuery(val);
 
@@ -360,6 +393,7 @@ export default function CustomerPortal({
   // Handle Search Form Submit
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
+    if (isReviewOnlyMode) return;
     if (!searchQuery.trim()) {
       setSearchedOrders(null);
       setHasSearched(false);
@@ -485,25 +519,47 @@ export default function CustomerPortal({
           </div>
         </div>
 
-        {/* Search Bar Form */}
-        <form onSubmit={handleSearch} className="flex flex-col sm:flex-row gap-3">
-          <div className="relative flex-1">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-natural-espresso/45" />
-            <input
-              type="text"
-              placeholder="ป้อนเบอร์มือถือ หรือ หมายเลขคิวออเดอร์ เพื่อค้นหา..."
-              value={searchQuery}
-              onChange={handleSearchInputChange}
-              className="w-full text-sm pl-12 pr-4 py-3.5 rounded-xl border border-natural-wheat focus:outline-none focus:ring-2 focus:ring-natural-clay/20 focus:border-natural-clay bg-natural-cream/15 text-natural-espresso font-medium"
-            />
+        {/* Search Bar Form or Locked Review Banner */}
+        {isReviewOnlyMode ? (
+          <div className="bg-gradient-to-r from-pink-500/10 via-rose-500/10 to-amber-500/10 border border-pink-300/80 p-4 sm:p-5 rounded-2xl flex flex-col sm:flex-row items-center justify-between gap-3 shadow-3xs animate-fade-in my-1">
+            <div className="flex items-center space-x-3.5">
+              <div className="p-3 bg-pink-600 text-white rounded-2xl shadow-xs shrink-0">
+                <Star className="h-6 w-6 fill-amber-300 text-amber-300" />
+              </div>
+              <div>
+                <h4 className="font-serif font-black text-sm sm:text-base text-pink-950 flex items-center gap-2">
+                  <span>🔒 หน้ารีวิวความพึงพอใจสำหรับออเดอร์ #{searchedOrders && searchedOrders[0] ? searchedOrders[0].orderNumber : searchQuery}</span>
+                </h4>
+                <p className="text-xs text-natural-espresso/70 mt-0.5">
+                  {searchedOrders && searchedOrders[0] ? `เรียนคุณ ${searchedOrders[0].customerName.replace('คุณ', '').trim()} (${searchedOrders[0].dressType})` : ''} — ระบบจำกัดการเข้าถึงเฉพาะออเดอร์นี้ของคุณเพื่อความเป็นส่วนตัวค่ะ ✨
+                </p>
+              </div>
+            </div>
+            <div className="bg-white/90 border border-pink-200 px-3.5 py-2 rounded-xl text-xs font-bold text-pink-900 shadow-3xs flex items-center gap-1.5 shrink-0">
+              <Lock className="h-4 w-4 text-pink-600" />
+              <span>สงวนสิทธิ์เฉพาะออเดอร์นี้</span>
+            </div>
           </div>
-          <button
-            type="submit"
-            className="bg-natural-espresso hover:bg-natural-clay text-natural-cream hover:text-white font-serif font-bold px-8 py-3.5 rounded-xl transition-all duration-300 shadow-sm cursor-pointer whitespace-nowrap"
-          >
-            ค้นหารายการออเดอร์
-          </button>
-        </form>
+        ) : (
+          <form onSubmit={handleSearch} className="flex flex-col sm:flex-row gap-3">
+            <div className="relative flex-1">
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-natural-espresso/45" />
+              <input
+                type="text"
+                placeholder="ป้อนเบอร์มือถือ หรือ หมายเลขคิวออเดอร์ เพื่อค้นหา..."
+                value={searchQuery}
+                onChange={handleSearchInputChange}
+                className="w-full text-sm pl-12 pr-4 py-3.5 rounded-xl border border-natural-wheat focus:outline-none focus:ring-2 focus:ring-natural-clay/20 focus:border-natural-clay bg-natural-cream/15 text-natural-espresso font-medium"
+              />
+            </div>
+            <button
+              type="submit"
+              className="bg-natural-espresso hover:bg-natural-clay text-natural-cream hover:text-white font-serif font-bold px-8 py-3.5 rounded-xl transition-all duration-300 shadow-sm cursor-pointer whitespace-nowrap"
+            >
+              ค้นหารายการออเดอร์
+            </button>
+          </form>
+        )}
 
         {/* Search Results Display */}
         <div className="space-y-6">
