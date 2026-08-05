@@ -133,6 +133,17 @@ function writeReviewsOnServer(data: any[]) {
 // Server-Sent Events (SSE) for Real-Time Multi-User Sync
 const sseClients: { id: string; res: express.Response }[] = [];
 
+// Heartbeat interval every 15 seconds to keep SSE connections alive on Render / Cloudflare / Nginx proxies
+setInterval(() => {
+  for (let i = sseClients.length - 1; i >= 0; i--) {
+    try {
+      sseClients[i].res.write(": heartbeat\n\n");
+    } catch (err) {
+      sseClients.splice(i, 1);
+    }
+  }
+}, 15000);
+
 function broadcastSSEEvent(type: string, data: any) {
   const payload = `data: ${JSON.stringify({ type, data })}\n\n`;
   for (let i = sseClients.length - 1; i >= 0; i--) {
