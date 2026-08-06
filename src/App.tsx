@@ -910,6 +910,10 @@ export default function App() {
 
   // ฟังก์ชันกลับสู่หน้าแรกระบบจัดการห้องเสื้อ (Home / Tracker Dashboard)
   const handleGoHome = () => {
+    if (isCustomerMode) {
+      setActiveTab('customer');
+      return;
+    }
     if (isStaffMode) {
       // สำหรับลิงก์พนักงาน: จำเพาะเจาะจงให้อยู่ในโหมดพนักงานเท่านั้น ไม่สามารถสลับไปหน้าหลังบ้านหลักได้
       setActiveTab('orderForm');
@@ -935,7 +939,9 @@ export default function App() {
             {/* Elegant Logo Group */}
             <div 
               onClick={() => {
-                if (isStaffMode) {
+                if (isCustomerMode) {
+                  setActiveTab('customer');
+                } else if (isStaffMode) {
                   setActiveTab('orderForm');
                 } else {
                   handleGoHome();
