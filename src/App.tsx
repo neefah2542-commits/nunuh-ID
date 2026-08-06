@@ -1793,18 +1793,28 @@ export default function App() {
                     {activeStaffList.map((st) => (
                       <div
                         key={st.id}
-                        className="flex items-center justify-between bg-emerald-50/70 p-2.5 rounded-xl border border-emerald-200/80 text-emerald-950"
+                        className="flex items-center justify-between bg-emerald-50/70 p-2.5 rounded-xl border border-emerald-200/80 text-emerald-950 gap-2"
                       >
-                        <div className="flex items-center space-x-2.5">
-                          <span className="text-base">👤</span>
-                          <div>
-                            <p className="font-bold text-xs">{st.name}</p>
-                            <p className="text-[10px] text-emerald-800/80">{st.branch}</p>
+                        <div className="flex items-center space-x-2.5 min-w-0">
+                          <span className="text-base shrink-0">👤</span>
+                          <div className="truncate">
+                            <p className="font-bold text-xs truncate">{st.name}</p>
+                            <p className="text-[10px] text-emerald-800/80 truncate">{st.branch}</p>
                           </div>
                         </div>
-                        <span className="text-[10px] bg-emerald-200/90 text-emerald-900 px-2 py-0.5 rounded-md font-bold">
-                          ออนไลน์ 🟢
-                        </span>
+                        <div className="flex items-center space-x-1.5 shrink-0">
+                          <span className="text-[10px] bg-emerald-200/90 text-emerald-900 px-2 py-0.5 rounded-md font-bold">
+                            ออนไลน์ 🟢
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveStaffSession(st.id)}
+                            className="px-2 py-1 bg-red-100 hover:bg-red-200 text-red-700 font-bold rounded-lg text-[10px] transition-all cursor-pointer"
+                            title="เจ้าของแอปบังคับออกจากระบบให้พนักงานท่านนี้"
+                          >
+                            ออกระบบ ✕
+                          </button>
+                        </div>
                       </div>
                     ))}
                   </div>
