@@ -519,17 +519,36 @@ export default function App() {
         eventSource.onmessage = (event) => {
           try {
             const payload = JSON.parse(event.data);
-            if (payload.type === 'orders_updated' && Array.isArray(payload.data)) {
-              const deletedIdsStr = localStorage.getItem('nunuh_deleted_order_ids') || '[]';
-              let deletedIds: string[] = [];
-              try { deletedIds = JSON.parse(deletedIdsStr); } catch (e) {}
+            if (payload.type === 'orders_updated') {
+              let incomingActive: Order[] = [];
+              let serverDeletedIds: string[] = [];
 
-              const filtered = payload.data.filter((o: Order) => !deletedIds.includes(o.id));
-              setOrders(prev => {
-                const merged = mergeOrders(prev, filtered);
-                localStorage.setItem('nunuh_orders', JSON.stringify(merged));
-                return merged;
-              });
+              if (Array.isArray(payload.data)) {
+                incomingActive = payload.data;
+              } else if (payload.data && typeof payload.data === 'object') {
+                if (Array.isArray(payload.data.orders)) {
+                  incomingActive = payload.data.orders;
+                }
+                if (Array.isArray(payload.data.deletedIds)) {
+                  serverDeletedIds = payload.data.deletedIds;
+                }
+                if (payload.data.deletedId && !serverDeletedIds.includes(payload.data.deletedId)) {
+                  serverDeletedIds.push(payload.data.deletedId);
+                }
+              }
+
+              const deletedIdsStr = localStorage.getItem('nunuh_deleted_order_ids') || '[]';
+              let localDeleted: string[] = [];
+              try { localDeleted = JSON.parse(deletedIdsStr); } catch (e) {}
+
+              const combinedDeleted = Array.from(new Set([...localDeleted, ...serverDeletedIds]));
+              localStorage.setItem('nunuh_deleted_order_ids', JSON.stringify(combinedDeleted));
+
+              const deletedSet = new Set(combinedDeleted);
+              const cleanActive = incomingActive.filter((o: Order) => !deletedSet.has(o.id));
+
+              setOrders(cleanActive);
+              localStorage.setItem('nunuh_orders', JSON.stringify(cleanActive));
             } else if (payload.type === 'catalogue_updated' && Array.isArray(payload.data)) {
               setCatalogue(payload.data);
               localStorage.setItem('nunuh_catalogue', JSON.stringify(payload.data));
@@ -567,8 +586,24 @@ export default function App() {
     try {
       channel = new BroadcastChannel('nunuh_multiuser_sync_channel');
       channel.onmessage = (event) => {
-        if (event.data && event.data.type === 'ORDERS_UPDATE' && Array.isArray(event.data.orders)) {
-          setOrders(prev => mergeOrders(prev, event.data.orders));
+        if (event.data) {
+          if (event.data.type === 'ORDER_DELETED' && event.data.deletedId) {
+            const deletedId = event.data.deletedId;
+            const deletedIdsStr = localStorage.getItem('nunuh_deleted_order_ids') || '[]';
+            let deletedIds: string[] = [];
+            try { deletedIds = JSON.parse(deletedIdsStr); } catch (e) {}
+            if (!deletedIds.includes(deletedId)) {
+              deletedIds.push(deletedId);
+              localStorage.setItem('nunuh_deleted_order_ids', JSON.stringify(deletedIds));
+            }
+            setOrders(prev => {
+              const filtered = prev.filter(o => o.id !== deletedId);
+              localStorage.setItem('nunuh_orders', JSON.stringify(filtered));
+              return filtered;
+            });
+          } else if (event.data.type === 'ORDERS_UPDATE' && Array.isArray(event.data.orders)) {
+            setOrders(prev => mergeOrders(prev, event.data.orders));
+          }
         }
       };
     } catch (e) {}
@@ -579,6 +614,19 @@ export default function App() {
           const parsed = JSON.parse(e.newValue);
           if (Array.isArray(parsed)) {
             setOrders(prev => mergeOrders(prev, parsed));
+          }
+        } catch (err) {}
+      }
+      if (e.key === 'nunuh_deleted_order_ids' && e.newValue) {
+        try {
+          const deletedIds = JSON.parse(e.newValue);
+          if (Array.isArray(deletedIds)) {
+            const deletedSet = new Set(deletedIds);
+            setOrders(prev => {
+              const filtered = prev.filter(o => !deletedSet.has(o.id));
+              localStorage.setItem('nunuh_orders', JSON.stringify(filtered));
+              return filtered;
+            });
           }
         } catch (err) {}
       }
@@ -740,7 +788,19 @@ export default function App() {
       localStorage.setItem('nunuh_deleted_order_ids', JSON.stringify(deletedIds));
     }
 
-    // 2. ลบออกจากระบบเซิร์ฟเวอร์โดยตรงทันที
+    // 2. ปรับปรุงสถานะ Local และเซฟแบบคลีนทันที
+    const updated = orders.filter(o => o.id !== orderId);
+    setOrders(updated);
+    localStorage.setItem('nunuh_orders', JSON.stringify(updated));
+
+    // 3. ส่งสัญญาณ BroadcastChannel ไปยังแท็บอื่นในเบราว์เซอร์เดียวกันทันที
+    try {
+      const channel = new BroadcastChannel('nunuh_multiuser_sync_channel');
+      channel.postMessage({ type: 'ORDER_DELETED', deletedId: orderId, orders: updated });
+      channel.close();
+    } catch (e) {}
+
+    // 4. ลบออกจากระบบเซิร์ฟเวอร์โดยตรงทันที (ซึ่งจะยิง SSE กระจายให้ผู้ใช้อื่นที่อยู่ต่างอุปกรณ์ด้วย)
     try {
       await fetch(`/api/orders/${orderId}`, {
         method: 'DELETE'
@@ -749,8 +809,6 @@ export default function App() {
       console.warn("Server delete failed, will sync later:", err);
     }
 
-    // 3. ปรับปรุงสถานะ Local และเซฟแบบคลีน
-    const updated = orders.filter(o => o.id !== orderId);
     saveOrdersToStorage(updated, orderId);
   };
 

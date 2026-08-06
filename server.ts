@@ -240,7 +240,10 @@ app.post("/api/staff/logout", (req, res) => {
 // REST API Endpoints
 app.get("/api/orders", (req, res) => {
   const serverOrders = readOrdersOnServer();
-  res.json(serverOrders);
+  const deletedIds = readDeletedOrdersOnServer();
+  const deletedSet = new Set(deletedIds);
+  const cleanOrders = serverOrders.filter((o: any) => !deletedSet.has(o.id));
+  res.json(cleanOrders);
 });
 
 app.delete("/api/orders/:id", (req, res) => {
@@ -259,9 +262,9 @@ app.delete("/api/orders/:id", (req, res) => {
   writeOrdersOnServer(updated);
   
   // Real-time broadcast to all clients
-  broadcastSSEEvent("orders_updated", updated);
+  broadcastSSEEvent("orders_updated", { orders: updated, deletedId: id, deletedIds });
 
-  res.json({ success: true, orders: updated });
+  res.json({ success: true, orders: updated, deletedId: id, deletedIds });
 });
 
 app.post("/api/orders", (req: any, res) => {

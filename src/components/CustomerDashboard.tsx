@@ -176,6 +176,19 @@ export default function CustomerDashboard({
     return profiles;
   }, [orders, reviews]);
 
+  // Keep open customer modal in sync when orders are deleted or updated
+  React.useEffect(() => {
+    if (selectedCustomer) {
+      const nameKey = selectedCustomer.name.replace(/^คุณ\s*/, '').replace(/\s+/g, ' ').toLowerCase();
+      const updated = customerProfiles.find(p => p.name.replace(/^คุณ\s*/, '').replace(/\s+/g, ' ').toLowerCase() === nameKey);
+      if (updated && updated.orders.length > 0) {
+        setSelectedCustomer(updated);
+      } else {
+        setSelectedCustomer(null);
+      }
+    }
+  }, [customerProfiles]);
+
   // Aggregate statistics for dashboard
   const stats = useMemo(() => {
     let totalUniqueCustomers = customerProfiles.length;
