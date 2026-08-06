@@ -72,6 +72,8 @@ export default function CustomerPortal({
   const [isLineLocked, setIsLineLocked] = useState(false);
   const [isReviewOnlyMode, setIsReviewOnlyMode] = useState(false);
   const [lockedOrderNumber, setLockedOrderNumber] = useState('');
+  const [isCustomerIdentityLocked, setIsCustomerIdentityLocked] = useState(false);
+  const [lockedCustomerIdentityQuery, setLockedCustomerIdentityQuery] = useState('');
 
   const [printingOrder, setPrintingOrder] = useState<Order | null>(null);
 
@@ -286,6 +288,50 @@ export default function CustomerPortal({
       return { matchedOrders: null, searched: false };
     }
 
+    // หากอยู่ในโหมดลูกค้า (isCustomerLocked = true): บังคับใช้ Privacy Policy ป้องกันการค้นหาชื่อหรือเบอร์ของผู้อื่น
+    if (isCustomerLocked) {
+      const isFullPhone = queryDigits.length >= 9;
+      const isOrderNumOrSku = query.length >= 3;
+
+      const matched = allOrders.filter(order => {
+        const phoneDigits = (order.customerPhone || '').replace(/\D/g, '');
+        const cleanPhone = (order.customerPhone || '').replace(/[\s-()]/g, '');
+        const orderNum = (order.orderNumber || '').toLowerCase();
+        const sku = (order.sku || '').toLowerCase();
+        const lineUserId = (order.lineUserId || '').toLowerCase();
+
+        // ค้นหาได้เฉพาะเบอร์โทรเต็ม 9-10 หลัก หรือหมายเลขคิวออเดอร์/SKU/LINE ID เท่านั้น (ไม่อนุญาตให้ค้นหาด้วยชื่อลูกค้า)
+        const matchesPhone = isFullPhone && (
+          phoneDigits === queryDigits || 
+          phoneDigits.endsWith(queryDigits) || 
+          queryDigits.endsWith(phoneDigits) ||
+          cleanPhone === cleanQuery
+        );
+        const matchesOrderNum = isOrderNumOrSku && (orderNum === query || order.id?.toLowerCase() === query);
+        const matchesSku = isOrderNumOrSku && sku === query;
+        const matchesLine = lineUserId && lineUserId === query;
+
+        return matchesPhone || matchesOrderNum || matchesSku || matchesLine;
+      });
+
+      if (matched.length > 0) {
+        // ดึงเฉพาะออเดอร์ที่เป็นของเบอร์โทรหรือคิวออเดอร์เดียวกับที่ค้นพบเท่านั้น
+        const matchedPhones = new Set(matched.map(o => (o.customerPhone || '').replace(/\D/g, '')));
+        const matchedOrderIds = new Set(matched.map(o => o.id));
+
+        const customerOrders = allOrders.filter(o => {
+          const pDigits = (o.customerPhone || '').replace(/\D/g, '');
+          return (pDigits && matchedPhones.has(pDigits)) || matchedOrderIds.has(o.id);
+        });
+
+        return { matchedOrders: customerOrders, searched: true, isCustomerIdentified: true };
+      }
+
+      // หากไม่พบการจับคู่แบบระบุตัวตน หรือพิมพ์เฉพาะตัวอักษรค้นหาทั่วไป
+      return { matchedOrders: [], searched: true, isCustomerIdentified: false };
+    }
+
+    // โหมดเจ้าของร้าน / พนักงาน (isCustomerLocked = false): ค้นหาได้เต็มรูปแบบตามปกติ 100%
     const matched = allOrders.filter(order => {
       const phoneDigits = (order.customerPhone || '').replace(/\D/g, '');
       const cleanPhone = (order.customerPhone || '').replace(/[\s-()]/g, '');
@@ -313,10 +359,10 @@ export default function CustomerPortal({
         return (pDigits && matchedPhones.has(pDigits)) || (cName && matchedNames.has(cName));
       });
 
-      return { matchedOrders: allCustomerOrders, searched: true };
+      return { matchedOrders: allCustomerOrders, searched: true, isCustomerIdentified: true };
     }
 
-    return { matchedOrders: [], searched: true };
+    return { matchedOrders: [], searched: true, isCustomerIdentified: false };
   };
 
   // Flag to ensure URL parameter search only sets state on initial mount
@@ -352,9 +398,13 @@ export default function CustomerPortal({
             setHasSearched(searched);
           }
         } else {
-          const { matchedOrders, searched } = performSearch(queryToUse, orders);
+          const { matchedOrders, searched, isCustomerIdentified } = performSearch(queryToUse, orders);
           setSearchedOrders(matchedOrders);
           setHasSearched(searched);
+          if (isCustomerLocked && isCustomerIdentified && matchedOrders && matchedOrders.length > 0) {
+            setIsCustomerIdentityLocked(true);
+            setLockedCustomerIdentityQuery(matchedOrders[0].customerPhone || matchedOrders[0].orderNumber || queryToUse);
+          }
         }
       }
       isInitialUrlCheckDone.current = true;
@@ -375,7 +425,7 @@ export default function CustomerPortal({
 
   // Handle Search Input Change with live search
   const handleSearchInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (isReviewOnlyMode) return;
+    if (isReviewOnlyMode || (isCustomerLocked && isCustomerIdentityLocked)) return;
     const val = e.target.value;
     setSearchQuery(val);
 
@@ -385,23 +435,33 @@ export default function CustomerPortal({
       return;
     }
 
-    const { matchedOrders, searched } = performSearch(val, orders);
+    const { matchedOrders, searched, isCustomerIdentified } = performSearch(val, orders);
     setSearchedOrders(matchedOrders);
     setHasSearched(searched);
+
+    if (isCustomerLocked && isCustomerIdentified && matchedOrders && matchedOrders.length > 0) {
+      setIsCustomerIdentityLocked(true);
+      setLockedCustomerIdentityQuery(matchedOrders[0].customerPhone || matchedOrders[0].orderNumber || val);
+    }
   };
 
   // Handle Search Form Submit
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
-    if (isReviewOnlyMode) return;
+    if (isReviewOnlyMode || (isCustomerLocked && isCustomerIdentityLocked)) return;
     if (!searchQuery.trim()) {
       setSearchedOrders(null);
       setHasSearched(false);
       return;
     }
-    const { matchedOrders, searched } = performSearch(searchQuery, orders);
+    const { matchedOrders, searched, isCustomerIdentified } = performSearch(searchQuery, orders);
     setSearchedOrders(matchedOrders);
     setHasSearched(searched);
+
+    if (isCustomerLocked && isCustomerIdentified && matchedOrders && matchedOrders.length > 0) {
+      setIsCustomerIdentityLocked(true);
+      setLockedCustomerIdentityQuery(matchedOrders[0].customerPhone || matchedOrders[0].orderNumber || searchQuery);
+    }
   };
 
   // Handle Customer Review Image Upload
@@ -540,13 +600,42 @@ export default function CustomerPortal({
               <span>สงวนสิทธิ์เฉพาะออเดอร์นี้</span>
             </div>
           </div>
+        ) : isCustomerLocked && isCustomerIdentityLocked ? (
+          <div className="bg-gradient-to-r from-emerald-500/10 via-teal-500/10 to-amber-500/10 border border-emerald-300/80 p-4 sm:p-5 rounded-2xl flex flex-col sm:flex-row items-center justify-between gap-3 shadow-3xs animate-fade-in my-1">
+            <div className="flex items-center space-x-3.5">
+              <div className="p-3 bg-emerald-700 text-white rounded-2xl shadow-xs shrink-0">
+                <Lock className="h-5 w-5" />
+              </div>
+              <div>
+                <h4 className="font-serif font-black text-sm sm:text-base text-emerald-950 flex items-center gap-2">
+                  <span>🔒 ล็อคการแสดงผลเฉพาะข้อมูลของคุณ ({lockedCustomerIdentityQuery})</span>
+                </h4>
+                <p className="text-xs text-emerald-900/80 mt-0.5 leading-relaxed">
+                  {searchedOrders && searchedOrders[0] ? `เรียนคุณ ${searchedOrders[0].customerName.replace('คุณ', '').trim()}` : ''} — ระบบคุ้มครองความเป็นส่วนตัวและจำกัดไม่ให้ค้นหาข้อมูลลูกค้ารายอื่นค่ะ ✨
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                setIsCustomerIdentityLocked(false);
+                setLockedCustomerIdentityQuery('');
+                setSearchQuery('');
+                setSearchedOrders(null);
+                setHasSearched(false);
+              }}
+              className="bg-white hover:bg-emerald-50 text-emerald-900 border border-emerald-300 px-4 py-2.5 rounded-xl text-xs font-extrabold shadow-3xs flex items-center gap-1.5 shrink-0 cursor-pointer transition-all"
+            >
+              <span>ค้นหาเบอร์อื่นของคุณ</span>
+            </button>
+          </div>
         ) : (
           <form onSubmit={handleSearch} className="flex flex-col sm:flex-row gap-3">
             <div className="relative flex-1">
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-natural-espresso/45" />
               <input
                 type="text"
-                placeholder="ป้อนเบอร์มือถือ หรือ หมายเลขคิวออเดอร์ เพื่อค้นหา..."
+                placeholder={isCustomerLocked ? "ป้อนเบอร์มือถือของคุณ (10 หลัก) หรือ หมายเลขคิว เพื่อค้นหา..." : "ป้อนเบอร์มือถือ หรือ หมายเลขคิวออเดอร์ เพื่อค้นหา..."}
                 value={searchQuery}
                 onChange={handleSearchInputChange}
                 className="w-full text-sm pl-12 pr-4 py-3.5 rounded-xl border border-natural-wheat focus:outline-none focus:ring-2 focus:ring-natural-clay/20 focus:border-natural-clay bg-natural-cream/15 text-natural-espresso font-medium"
