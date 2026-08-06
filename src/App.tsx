@@ -69,9 +69,9 @@ export default function App() {
     return [];
   });
 
-  const [currentStaff, setCurrentStaff] = useState<{ name: string; branch: string } | null>(() => {
+  const [currentStaff, setCurrentStaff] = useState<{ id?: string; name: string; branch: string } | null>(() => {
     if (activeStaffList.length > 0) {
-      return { name: activeStaffList[0].name, branch: activeStaffList[0].branch };
+      return { id: activeStaffList[0].id, name: activeStaffList[0].name, branch: activeStaffList[0].branch };
     }
     const saved = localStorage.getItem('nunuh_logged_in_staff');
     if (saved) {
@@ -125,8 +125,8 @@ export default function App() {
     const updatedList = [newStaff, ...activeStaffList];
     setActiveStaffList(updatedList);
     localStorage.setItem('nunuh_active_staff_list', JSON.stringify(updatedList));
-    setCurrentStaff({ name: newStaff.name, branch: newStaff.branch });
-    localStorage.setItem('nunuh_logged_in_staff', JSON.stringify({ name: newStaff.name, branch: newStaff.branch }));
+    setCurrentStaff({ id: newStaff.id, name: newStaff.name, branch: newStaff.branch });
+    localStorage.setItem('nunuh_logged_in_staff', JSON.stringify({ id: newStaff.id, name: newStaff.name, branch: newStaff.branch }));
     setShowAddStaffModal(false);
 
     // Sync login session to backend server
@@ -138,16 +138,31 @@ export default function App() {
   };
 
   const handleRemoveStaffSession = (id: string) => {
+    const removedStaff = activeStaffList.find(s => s.id === id);
     const updatedList = activeStaffList.filter(s => s.id !== id);
     setActiveStaffList(updatedList);
     localStorage.setItem('nunuh_active_staff_list', JSON.stringify(updatedList));
-    if (updatedList.length > 0) {
-      setCurrentStaff({ name: updatedList[0].name, branch: updatedList[0].branch });
-      localStorage.setItem('nunuh_logged_in_staff', JSON.stringify({ name: updatedList[0].name, branch: updatedList[0].branch }));
-    } else {
-      setCurrentStaff(null);
-      localStorage.removeItem('nunuh_logged_in_staff');
+
+    if (currentStaff) {
+      const isThisStaff = currentStaff.id === id || (removedStaff && currentStaff.name === removedStaff.name && currentStaff.branch === removedStaff.branch);
+      if (isThisStaff) {
+        if (updatedList.length > 0) {
+          const nextStaff = { id: updatedList[0].id, name: updatedList[0].name, branch: updatedList[0].branch };
+          setCurrentStaff(nextStaff);
+          localStorage.setItem('nunuh_logged_in_staff', JSON.stringify(nextStaff));
+        } else {
+          setCurrentStaff(null);
+          localStorage.removeItem('nunuh_logged_in_staff');
+        }
+      }
     }
+
+    // Broadcast channel signal to immediately sync across open browser tabs
+    try {
+      const channel = new BroadcastChannel('nunuh_multiuser_sync_channel');
+      channel.postMessage({ type: 'STAFF_FORCED_LOGOUT', id, staffName: removedStaff?.name });
+      channel.close();
+    } catch (e) {}
 
     // Sync logout session to backend server
     fetch('/api/staff/logout', {
@@ -163,11 +178,18 @@ export default function App() {
     localStorage.removeItem('nunuh_active_staff_list');
     localStorage.removeItem('nunuh_logged_in_staff');
 
+    // Broadcast channel signal for all staff sessions
+    try {
+      const channel = new BroadcastChannel('nunuh_multiuser_sync_channel');
+      channel.postMessage({ type: 'STAFF_FORCED_LOGOUT', logoutAll: true });
+      channel.close();
+    } catch (e) {}
+
     // Sync logout all sessions to backend server
     fetch('/api/staff/logout', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({})
+      body: JSON.stringify({ logoutAll: true })
     }).catch(() => {});
   };
 
