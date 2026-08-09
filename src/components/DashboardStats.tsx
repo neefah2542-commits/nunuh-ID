@@ -16,7 +16,10 @@ import {
   Smartphone,
   Wallet,
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  Store,
+  Filter,
+  Building2
 } from 'lucide-react';
 
 interface DashboardStatsProps {
@@ -27,40 +30,81 @@ interface DashboardStatsProps {
 export default function DashboardStats({ orders, onSelectTab }: DashboardStatsProps) {
   const [isKpiExpanded, setIsKpiExpanded] = useState(true);
   const [isBreakdownExpanded, setIsBreakdownExpanded] = useState(true);
+  const [isBranchBreakdownExpanded, setIsBranchBreakdownExpanded] = useState(true);
+  const [selectedBranch, setSelectedBranch] = useState<string>('ALL');
 
-  // สถิติทั้งหมด
-  const totalOrders = orders.length;
+  // ฟังก์ชันดึงชื่อสาขาของออเดอร์
+  const getOrderBranch = (o: Order) => (o.branch || o.staffBranch || 'สาขานราธิวาส').trim();
+
+  // สร้างรายชื่อสาขาทั้งหมดที่มีในระบบ
+  const knownBranches = ['สาขานราธิวาส', 'สาขายะลา', 'สาขาปัตตานี', 'สาขาหาดใหญ่'];
+  const allBranches = Array.from(
+    new Set([
+      ...knownBranches,
+      ...orders.map(o => getOrderBranch(o)).filter(Boolean)
+    ])
+  );
+
+  // กรองออเดอร์ตามสาขาที่เลือก
+  const displayedOrders = selectedBranch === 'ALL'
+    ? orders
+    : orders.filter(o => getOrderBranch(o) === selectedBranch);
+
+  // สถิติทั้งหมด (ตามสาขาที่กรอง)
+  const totalOrders = displayedOrders.length;
   
   // กำลังดำเนินการ (ไม่ใช่ COMPLETED)
-  const activeOrders = orders.filter(o => o.status !== OrderStatus.COMPLETED).length;
+  const activeOrders = displayedOrders.filter(o => o.status !== OrderStatus.COMPLETED).length;
   
   // พร้อมส่งมอบ (READY)
-  const readyOrders = orders.filter(o => o.status === OrderStatus.READY).length;
+  const readyOrders = displayedOrders.filter(o => o.status === OrderStatus.READY).length;
 
-  // รายได้ทั้งหมด (รวมมัดจำหรือยอดสั่งซื้อทั้งหมด)
-  const totalRevenue = orders.reduce((sum, o) => sum + o.price, 0);
-  const totalDeposits = orders.reduce((sum, o) => sum + o.deposit, 0);
+  // รายได้ทั้งหมด (ตามสาขาที่กรอง)
+  const totalRevenue = displayedOrders.reduce((sum, o) => sum + (o.price || 0), 0);
+  const totalDeposits = displayedOrders.reduce((sum, o) => sum + (o.deposit || 0) + (o.finalPaymentAmount || 0), 0);
 
   // คำนวณแยกตามช่องทาง เพื่อนำไปแสดงเป็นสรุปด่วนในการ์ด "มูลค่าออเดอร์รวม"
-  const transferOrders = orders.filter(o => (o.paymentMethod || "").trim() === "เงินโอน");
-  const cashOrders = orders.filter(o => (o.paymentMethod || "").trim() === "เงินสด");
-  const creditOrders = orders.filter(o => (o.paymentMethod || "").trim() === "บัตรเครดิต");
-  const otherUnspecifiedOrders = orders.filter(o => {
+  const transferOrders = displayedOrders.filter(o => (o.paymentMethod || "").trim() === "เงินโอน");
+  const cashOrders = displayedOrders.filter(o => (o.paymentMethod || "").trim() === "เงินสด");
+  const creditOrders = displayedOrders.filter(o => (o.paymentMethod || "").trim() === "บัตรเครดิต");
+  const otherUnspecifiedOrders = displayedOrders.filter(o => {
     const m = (o.paymentMethod || "").trim();
     return !m || !["เงินโอน", "เงินสด", "บัตรเครดิต"].includes(m);
   });
 
   const transferRevenue = transferOrders.reduce((sum, o) => sum + (o.price || 0), 0);
-  const transferDeposit = transferOrders.reduce((sum, o) => sum + (o.deposit || 0), 0);
+  const transferDeposit = transferOrders.reduce((sum, o) => sum + (o.deposit || 0) + (o.finalPaymentAmount || 0), 0);
 
   const cashRevenue = cashOrders.reduce((sum, o) => sum + (o.price || 0), 0);
-  const cashDeposit = cashOrders.reduce((sum, o) => sum + (o.deposit || 0), 0);
+  const cashDeposit = cashOrders.reduce((sum, o) => sum + (o.deposit || 0) + (o.finalPaymentAmount || 0), 0);
 
   const creditRevenue = creditOrders.reduce((sum, o) => sum + (o.price || 0), 0);
-  const creditDeposit = creditOrders.reduce((sum, o) => sum + (o.deposit || 0), 0);
+  const creditDeposit = creditOrders.reduce((sum, o) => sum + (o.deposit || 0) + (o.finalPaymentAmount || 0), 0);
 
   const otherRevenue = otherUnspecifiedOrders.reduce((sum, o) => sum + (o.price || 0), 0);
-  const otherDeposit = otherUnspecifiedOrders.reduce((sum, o) => sum + (o.deposit || 0), 0);
+  const otherDeposit = otherUnspecifiedOrders.reduce((sum, o) => sum + (o.deposit || 0) + (o.finalPaymentAmount || 0), 0);
+
+  // สรุปข้อมูลแยกตามสาขา (คำนวณจากออเดอร์ทั้งหมดในระบบเพื่อเปรียบเทียบ)
+  const totalGlobalRevenue = orders.reduce((sum, o) => sum + (o.price || 0), 0);
+
+  const branchSummaries = allBranches.map(branchName => {
+    const bOrders = orders.filter(o => getOrderBranch(o) === branchName);
+    const count = bOrders.length;
+    const priceSum = bOrders.reduce((sum, o) => sum + (o.price || 0), 0);
+    const depositSum = bOrders.reduce((sum, o) => sum + (o.deposit || 0) + (o.finalPaymentAmount || 0), 0);
+    const discountSum = bOrders.reduce((sum, o) => sum + (o.discount || 0), 0);
+    const unpaidSum = Math.max(0, priceSum - discountSum - depositSum);
+    const percent = totalGlobalRevenue > 0 ? Math.round((priceSum / totalGlobalRevenue) * 100) : 0;
+
+    return {
+      branchName,
+      count,
+      priceSum,
+      depositSum,
+      unpaidSum,
+      percent
+    };
+  });
 
   const stats = [
     {
@@ -69,7 +113,7 @@ export default function DashboardStats({ orders, onSelectTab }: DashboardStatsPr
       value: `${totalOrders} ชุด`,
       icon: ShoppingBag,
       color: "bg-natural-sand text-natural-espresso border-natural-wheat/80",
-      description: "ประวัติการสั่งซื้อรวมทั้งหมด",
+      description: selectedBranch === 'ALL' ? "ประวัติการสั่งซื้อรวมทุกสาขา" : `ออเดอร์เฉพาะ ${selectedBranch}`,
       actionLabel: "ดูงานทั้งหมด",
       onClick: () => onSelectTab("tracker")
     },
@@ -87,7 +131,7 @@ export default function DashboardStats({ orders, onSelectTab }: DashboardStatsPr
       id: "stat-ready",
       label: "พร้อมส่งมอบ",
       value: `${readyOrders} ชุด`,
-      icon: SparklesIcon, // We can use standard Sparkles icon from lucide
+      icon: SparklesIcon,
       color: "bg-[rgba(93,114,96,0.08)] text-natural-sage border-natural-sage/25",
       description: "เสร็จสิ้น QC รอส่งถึงมือลูกค้า",
       actionLabel: "ดูวันส่งชุด",
@@ -99,7 +143,7 @@ export default function DashboardStats({ orders, onSelectTab }: DashboardStatsPr
       value: `${totalRevenue.toLocaleString()} ฿`,
       icon: CreditCard,
       color: "bg-[rgba(194,141,84,0.08)] text-natural-ochre border-natural-ochre/25",
-      description: `ได้รับมัดจำแล้ว ${totalDeposits.toLocaleString()} ฿`,
+      description: `ได้รับชำระแล้ว ${totalDeposits.toLocaleString()} ฿`,
       actionLabel: "รับออเดอร์เพิ่ม",
       onClick: () => onSelectTab("orderForm")
     }
@@ -109,7 +153,7 @@ export default function DashboardStats({ orders, onSelectTab }: DashboardStatsPr
   const paymentMethods = ["เงินโอน", "เงินสด", "บัตรเครดิต"];
   
   const paymentSummary = paymentMethods.map(method => {
-    const matchingOrders = orders.filter(o => {
+    const matchingOrders = displayedOrders.filter(o => {
       const oMethod = (o.paymentMethod || "").trim();
       return oMethod === method;
     });
@@ -173,7 +217,7 @@ export default function DashboardStats({ orders, onSelectTab }: DashboardStatsPr
   });
 
   // สำหรับออเดอร์ที่ยังไม่ระบุช่องทางการเงิน หรือเป็นข้อมูลเก่าอื่นๆ
-  const otherOrders = orders.filter(o => {
+  const otherOrders = displayedOrders.filter(o => {
     const oMethod = (o.paymentMethod || "").trim();
     return !oMethod || !paymentMethods.includes(oMethod);
   });
@@ -203,12 +247,49 @@ export default function DashboardStats({ orders, onSelectTab }: DashboardStatsPr
 
   return (
     <div className="space-y-6 mb-8">
+      {/* Branch Selector Filter Bar */}
+      <div className="bg-white/90 border border-natural-wheat p-3.5 rounded-2xl shadow-2xs flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center space-x-2">
+          <Store className="h-5 w-5 text-natural-clay" />
+          <span className="text-xs font-bold text-natural-espresso font-serif">
+            เลือกดูสถิติตามสาขา:
+          </span>
+        </div>
+        <div className="flex flex-wrap items-center gap-1.5">
+          <button
+            type="button"
+            onClick={() => setSelectedBranch('ALL')}
+            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+              selectedBranch === 'ALL'
+                ? 'bg-natural-clay text-white shadow-xs'
+                : 'bg-natural-sand/60 text-natural-espresso/70 hover:bg-natural-sand hover:text-natural-espresso'
+            }`}
+          >
+            ทุกสาขา (ALL)
+          </button>
+          {allBranches.map((bName) => (
+            <button
+              key={bName}
+              type="button"
+              onClick={() => setSelectedBranch(bName)}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                selectedBranch === bName
+                  ? 'bg-natural-clay text-white shadow-xs'
+                  : 'bg-natural-sand/60 text-natural-espresso/70 hover:bg-natural-sand hover:text-natural-espresso'
+              }`}
+            >
+              🏪 {bName}
+            </button>
+          ))}
+        </div>
+      </div>
+
       {/* Top Header & Toggle Bar for KPI Stats */}
       <div className="flex items-center justify-between px-1">
         <div className="flex items-center space-x-2">
           <ShoppingBag className="h-5 w-5 text-natural-clay" />
           <h3 className="text-sm font-bold text-natural-espresso font-serif">
-            ภาพรวมสถิติออเดอร์ (Overview Statistics)
+            ภาพรวมสถิติออเดอร์ {selectedBranch !== 'ALL' && <span className="text-natural-clay font-bold">({selectedBranch})</span>}
           </h3>
         </div>
         <button
@@ -304,7 +385,114 @@ export default function DashboardStats({ orders, onSelectTab }: DashboardStatsPr
         </div>
       )}
 
-      {/* 2. Sleek Interactive Payment Breakdown Panel */}
+      {/* 2. สรุปมูลค่าออเดอร์และรายได้แยกตามสาขา (Branch Revenue Breakdown Panel) */}
+      <div className="bg-natural-sand/30 border border-natural-wheat rounded-2xl p-5 transition-all duration-300">
+        <div 
+          onClick={() => setIsBranchBreakdownExpanded(!isBranchBreakdownExpanded)}
+          className="flex items-center justify-between cursor-pointer select-none group"
+        >
+          <div className="flex items-center space-x-2">
+            <Building2 className="h-5 w-5 text-natural-clay" />
+            <h4 className="text-sm font-bold text-natural-espresso font-serif group-hover:text-natural-clay transition-colors">
+              สรุปมูลค่าออเดอร์และยอดเงินแยกตามสาขา (Revenue & Orders by Branch)
+            </h4>
+          </div>
+          <div className="flex items-center space-x-1.5 text-xs text-natural-espresso/70 group-hover:text-natural-clay font-bold bg-white/80 group-hover:bg-white px-3.5 py-1.5 rounded-xl border border-natural-wheat/60 shadow-2xs transition-all">
+            <span>{isBranchBreakdownExpanded ? 'ย่อแผงข้อมูล' : 'ขยายแผงข้อมูล'}</span>
+            {isBranchBreakdownExpanded ? (
+              <ChevronUp className="h-4 w-4 text-natural-clay" />
+            ) : (
+              <ChevronDown className="h-4 w-4 text-natural-clay" />
+            )}
+          </div>
+        </div>
+
+        {isBranchBreakdownExpanded && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-5 animate-fadeIn">
+            {branchSummaries.map((b) => {
+              const isSelected = selectedBranch === b.branchName;
+              return (
+                <div 
+                  key={b.branchName}
+                  className={`p-4 rounded-xl border transition-all duration-300 ${
+                    isSelected
+                      ? 'bg-white border-2 border-natural-clay shadow-md'
+                      : 'bg-white/80 hover:bg-white border-natural-wheat/80 hover:shadow-xs'
+                  }`}
+                >
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center space-x-2">
+                      <div className="p-1.5 rounded-lg bg-natural-clay/10 text-natural-clay">
+                        <Store className="h-4 w-4" />
+                      </div>
+                      <span className="text-xs font-bold text-natural-espresso font-sans">
+                        {b.branchName}
+                      </span>
+                    </div>
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-natural-sand text-natural-espresso border border-natural-wheat">
+                      {b.count} ออเดอร์ ({b.percent}%)
+                    </span>
+                  </div>
+
+                  <div className="space-y-2 mt-2">
+                    {/* ยอดขายรวมสาขา */}
+                    <div className="flex justify-between items-center">
+                      <span className="text-[11px] text-natural-espresso/60 font-semibold">มูลค่าออเดอร์รวม:</span>
+                      <span className="text-xs font-extrabold text-natural-espresso">
+                        {b.priceSum.toLocaleString()} ฿
+                      </span>
+                    </div>
+
+                    {/* ยอดมัดจำ/ชำระแล้ว */}
+                    <div className="flex justify-between items-center">
+                      <span className="text-[11px] text-natural-espresso/50 font-medium">ยอดชำระแล้ว:</span>
+                      <span className="text-xs font-bold text-natural-sage">
+                        {b.depositSum.toLocaleString()} ฿
+                      </span>
+                    </div>
+
+                    {/* ยอดคงเหลือค้างรับ */}
+                    <div className="flex justify-between items-center">
+                      <span className="text-[11px] text-natural-espresso/50 font-medium">คงเหลือค้างรับ:</span>
+                      <span className={`text-xs font-semibold ${b.unpaidSum > 0 ? 'text-natural-clay' : 'text-natural-sage'}`}>
+                        {b.unpaidSum > 0 ? `${b.unpaidSum.toLocaleString()} ฿` : 'ชำระครบถ้วน ✓'}
+                      </span>
+                    </div>
+
+                    {/* Progress Bar แสดงสัดส่วนรายได้ */}
+                    <div className="pt-1.5">
+                      <div className="w-full bg-natural-sand/80 h-1.5 rounded-full overflow-hidden">
+                        <div 
+                          className="bg-natural-clay h-full transition-all duration-500 rounded-full" 
+                          style={{ width: `${Math.min(100, b.percent)}%` }}
+                        />
+                      </div>
+                    </div>
+
+                    {/* ปุ่มกรองข้อมูลเฉพาะสาขานี้ */}
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSelectedBranch(isSelected ? 'ALL' : b.branchName);
+                      }}
+                      className={`w-full mt-2 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer ${
+                        isSelected
+                          ? 'bg-natural-clay text-white'
+                          : 'bg-natural-sand/50 text-natural-espresso/80 hover:bg-natural-clay hover:text-white'
+                      }`}
+                    >
+                      {isSelected ? 'กำลังกรองสาขานี้ (คลิกเพื่อยกเลิก)' : 'ดูรายละเอียดเฉพาะสาขานี้'}
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* 3. Sleek Interactive Payment Breakdown Panel */}
       <div className="bg-natural-sand/20 border border-natural-wheat rounded-2xl p-5 transition-all duration-300">
         <div 
           onClick={() => setIsBreakdownExpanded(!isBreakdownExpanded)}
@@ -313,7 +501,7 @@ export default function DashboardStats({ orders, onSelectTab }: DashboardStatsPr
           <div className="flex items-center space-x-2">
             <TrendingUp className="h-5 w-5 text-natural-clay" />
             <h4 className="text-sm font-bold text-natural-espresso font-serif group-hover:text-natural-clay transition-colors">
-              สรุปยอดรับเงินแยกตามช่องทางการชำระ (Payment Summary)
+              สรุปยอดรับเงินแยกตามช่องทางการชำระ (Payment Summary {selectedBranch !== 'ALL' && `- ${selectedBranch}`})
             </h4>
           </div>
           <div className="flex items-center space-x-1.5 text-xs text-natural-espresso/70 group-hover:text-natural-clay font-bold bg-white/80 group-hover:bg-white px-3.5 py-1.5 rounded-xl border border-natural-wheat/60 shadow-2xs transition-all">
